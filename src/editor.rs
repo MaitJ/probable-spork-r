@@ -1,12 +1,12 @@
 use egui::{ClippedPrimitive};
 use egui_wgpu::{Renderer, renderer::ScreenDescriptor};
 use log::info;
-use winit::{window::Window};
+use winit::{window::Window, event_loop::EventLoop, event::WindowEvent};
 
 //Something is fucked egui_winit
 //Getting a linking error, which uses mingw64
 pub struct Editor {
-    //winit_state: egui_winit::State,
+    winit_state: egui_winit::State,
     ctx: egui::Context,
     renderer: egui_wgpu::Renderer,
     screen_descriptor: ScreenDescriptor,
@@ -14,8 +14,9 @@ pub struct Editor {
 }
 
 impl Editor {
-    pub async fn new(device: &wgpu::Device, window: &Window, texture_format: wgpu::TextureFormat) -> Self {
+    pub async fn new(event_loop: &EventLoop<()>, device: &wgpu::Device, window: &Window, texture_format: wgpu::TextureFormat) -> Self {
         info!("Creating editor");
+        let winit_state = egui_winit::State::new(event_loop);
         let ctx = egui::Context::default();
         let renderer = Renderer::new(device, texture_format, Some(crate::Texture::DEPTH_FORMAT), 1);
 
@@ -25,6 +26,7 @@ impl Editor {
         };
 
         Self {
+            winit_state,
             ctx,
             renderer,
             screen_descriptor,
@@ -44,9 +46,9 @@ impl Editor {
         self.renderer.render(render_pass, &self.clipped_primitives, &self.screen_descriptor);
     }
 
-    pub fn update_ui_textures(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder) {
-        //let raw_input = self.winit_state.take_egui_input(window);
-        let raw_input = egui::RawInput::default();
+    pub fn update_ui_textures(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, 
+            window: &winit::window::Window) {
+        let raw_input = self.winit_state.take_egui_input(window);
         let full_output = self.ctx.run(raw_input, |ctx| {
             egui::Window::new("Debug window").show(&ctx, |ui| {
                 ui.label("Hello world!");
@@ -64,9 +66,8 @@ impl Editor {
         self.clipped_primitives = clipped_primitives;
     }
 
-    /*
+    //TODO - Consume the EventResponse
     pub fn update(&mut self, event: &WindowEvent) {
         self.winit_state.on_event(&self.ctx, event);
     }
-    */
 }

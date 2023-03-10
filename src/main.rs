@@ -41,7 +41,7 @@ struct App {
 }
 
 impl App {
-    async fn new(window: Window) -> App {
+    async fn new(window: Window, event_loop: &EventLoop<()>) -> App {
         let size = window.inner_size();
         let pixels_per_point = window.scale_factor() as f32;
 
@@ -90,7 +90,7 @@ impl App {
         };
         surface.configure(&device, &config);
 
-        let editor = Editor::new(&device, &window, surface_format).await;
+        let editor = Editor::new(event_loop, &device, &window, surface_format).await;
 
 
         let camera = Self::init_camera(&config);
@@ -193,7 +193,7 @@ impl App {
             self.meshes.iter().for_each(|mesh| mesh.render(&mut render_pass));
         }
 
-        self.editor.update_ui_textures(&self.device, &self.queue, &mut encoder);
+        self.editor.update_ui_textures(&self.device, &self.queue, &mut encoder, &self.window);
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Editor render pass"),
@@ -256,13 +256,13 @@ async fn start() {
     let window = WindowBuilder::new()
         .with_inner_size(LogicalSize::new(1280, 720))
         .build(&event_loop).unwrap();
-    let mut app = App::new(window).await;
+    let mut app = App::new(window, &event_loop).await;
     app.init_shaders();
     app.add_mesh();
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent { ref event, window_id,} if window_id == app.window.id() => if !app.input(event) {
-            //app.editor.update(event);
+            app.editor.update(event);
             match event {
                 WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                 WindowEvent::KeyboardInput {
