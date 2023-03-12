@@ -10,7 +10,7 @@ mod editor;
 
 use std::{rc::Rc, sync::Arc};
 
-use editor::Editor;
+use editor::editor::Editor;
 use egui_wgpu::WgpuConfiguration;
 use log::{info, warn};
 use mesh::{TexturedMesh, Mesh};
@@ -19,7 +19,7 @@ use camera_controller::CameraController;
 use shader::{Shader, ShaderBuilder};
 use test_tree::{VERTICES, INDICES};
 use texture::Texture;
-use wgpu::{InstanceDescriptor, RequestAdapterOptions};
+use wgpu::{InstanceDescriptor, RequestAdapterOptions, RenderPass};
 use winit::{event_loop::{EventLoop, ControlFlow, EventLoopWindowTarget}, window::WindowBuilder, event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode}, dpi::LogicalSize};
 use winit::window::Window;
 
@@ -35,10 +35,16 @@ struct App {
     camera_controller: CameraController,
     camera_uniform: CameraUniform,
     depth_texture: Texture,
-    shaders: Vec<Rc<Shader>>,
-    meshes: Vec<Box<dyn Mesh>>,
-    editor: Editor
+    shaders: Vec<Arc<Shader>>,
+    meshes: Vec<Box<dyn Mesh + Send + Sync>>,
+    editor: Option<Editor>
 }
+
+struct Renderables {
+    meshes: Vec<Box<dyn Mesh + Send + Sync>>
+}
+
+
 
 impl App {
     async fn new(window: Window, event_loop: &EventLoop<()>) -> App {
@@ -92,7 +98,6 @@ impl App {
 
         let editor = Editor::new(event_loop, &device, &window, surface_format).await;
 
-
         let camera = Self::init_camera(&config);
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera);
@@ -120,28 +125,42 @@ impl App {
         }
     }
 
+    fn get_shader_by_label(&self, label: &str) -> Option<Arc<Shader>> {
+        self.shaders.iter()
+            .find(|shader| shader.label == label)
+            .cloned()
+    }
+
     fn add_mesh(&mut self) {
         let texture_bytes = include_bytes!("textures/happy-tree.png");
         let diffuse_texture = Texture::from_bytes(texture_bytes, &self.device, &self.queue, "Tree texture").unwrap();
 
         info!("Tree texture format: {:?}", diffuse_texture.texture.format());
-        let textured_mesh = TexturedMesh::from(&self.device, VERTICES, INDICES, Rc::clone(&self.shaders[0]), diffuse_texture);
+        let default_shader = self.get_shader_by_label("basic_shader.wgsl");
 
-        match textured_mesh {
-            Ok(mesh) => self.meshes.push(Box::new(mesh)),
-            Err(e) => warn!("Wasn't able to create mesh: {}", e)
+        match default_shader {
+            Some(shader) => {
+                let textured_mesh = TexturedMesh::from(&self.device, VERTICES, INDICES, shader, diffuse_texture);
+                match textured_mesh {
+                    Ok(mesh) => self.meshes.push(Box::new(mesh)),
+                    Err(e) => warn!("Wasn't able to create mesh: {}", e)
+                }
+            },
+            None => warn!("Couldn't find shader ({}) for {}", "basic_shader.wgsl", "tree")
         }
+
     }
 
-    fn init_shaders(&mut self) {
+    fn init_shaders(&mut self) -> Result<(), anyhow::Error> {
         let basic_shader = ShaderBuilder::new()
-            .load_shader(&self.device, "basic_shader.wgsl")
+            .load_shader(&self.device, "basic_shader.wgsl")?
             .add_texture(&self.device, "texture")
             .add_uniform::<CameraUniform>(&self.device, "camera_uniform", CameraUniform::new())
             //TODO - Replace with logger
-            .build(&self.device, &self.config).expect("[ERROR] Failed to build shader");
+            .build(&self.device, &self.config).expect("Failed to build shader");
 
-        self.shaders.push(Rc::new(basic_shader));
+        self.shaders.push(Arc::new(basic_shader));
+        Ok(())
     }
 
     fn init_camera(config: &wgpu::SurfaceConfiguration) -> Camera {
@@ -164,57 +183,60 @@ impl App {
             label: Some("Render Encoder")
         });
 
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment { 
-                    view: &view, 
-                    resolve_target: None, 
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0
+        if !self.editor.is_enabled {
+            {
+                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("Render pass"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment { 
+                        view: &view, 
+                        resolve_target: None, 
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color {
+                                r: 0.1,
+                                g: 0.2,
+                                b: 0.3,
+                                a: 1.0
+                            }),
+                            store: true
+                        }
+                    })],
+                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                        view: &self.depth_texture.view,
+                        depth_ops: Some(wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(1.0),
+                            store: true
                         }),
-                        store: true
-                    }
-                })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_texture.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true
-                    }),
-                    stencil_ops: None
-                })
-            });
+                        stencil_ops: None
+                    })
+                });
 
-            self.meshes.iter().for_each(|mesh| mesh.render(&mut render_pass));
+                self.meshes.iter().for_each(|mesh| mesh.render(&mut render_pass));
+            }
         }
-
-        self.editor.update_ui_textures(&self.device, &self.queue, &mut encoder, &self.window);
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Editor render pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment { 
-                    view: &view, 
-                    resolve_target: None, 
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: true
-                    }
-                })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_texture.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true
-                    }),
-                    stencil_ops: None
-                })
-            });
-            self.editor.render_ui(&mut render_pass);
+        else {
+            self.editor.update_ui_textures(&self.device, &self.queue, &mut encoder, &self.window);
+            {
+                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("Editor render pass"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment { 
+                        view: &view, 
+                        resolve_target: None, 
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Load,
+                            store: true
+                        }
+                    })],
+                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                        view: &self.depth_texture.view,
+                        depth_ops: Some(wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(1.0),
+                            store: true
+                        }),
+                        stencil_ops: None
+                    })
+                });
+                self.editor.render_ui(&mut render_pass);
+            }
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -257,29 +279,36 @@ async fn start() {
         .with_inner_size(LogicalSize::new(1280, 720))
         .build(&event_loop).unwrap();
     let mut app = App::new(window, &event_loop).await;
-    app.init_shaders();
+    if let Err(err) = app.init_shaders() {
+        warn!("Failed to initialize shaders: {}", err);
+    }
+    app.editor.add_render_resources(Arc::clone(&app.meshes));
     app.add_mesh();
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent { ref event, window_id,} if window_id == app.window.id() => if !app.input(event) {
-            app.editor.update(event);
-            match event {
-                WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput{
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(keycode),
+            
+            let ui_event_response = app.editor.update(event);
+            
+            if !ui_event_response.consumed {
+                match event {
+                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput{
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(keycode),
+                                ..
+                            },
                             ..
-                        },
-                        ..
-                } => match keycode {
-                    VirtualKeyCode::Escape => *control_flow = ControlFlow::Exit,
+                    } => match keycode {
+                        VirtualKeyCode::Escape => *control_flow = ControlFlow::Exit,
+                        _ => {}
+                    },
+                    WindowEvent::Resized(physical_size) => app.resize(*physical_size, None),
+                    WindowEvent::ScaleFactorChanged { new_inner_size, scale_factor } => app.resize(**new_inner_size, Some(*scale_factor as f32)),
                     _ => {}
-                },
-                WindowEvent::Resized(physical_size) => app.resize(*physical_size, None),
-                WindowEvent::ScaleFactorChanged { new_inner_size, scale_factor } => app.resize(**new_inner_size, Some(*scale_factor as f32)),
-                _ => {}
+                }
             }
         },
         Event::MainEventsCleared => app.window.request_redraw(),

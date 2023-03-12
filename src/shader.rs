@@ -82,11 +82,13 @@ impl ShaderBuilder {
         }
     }
 
-    pub fn load_shader(mut self, device: &wgpu::Device, file_name: &'static str) -> Self {
+    pub fn load_shader(mut self, device: &wgpu::Device, file_name: &'static str) -> Result<Self, anyhow::Error> {
+        let working_directory = std::env::current_dir()?;
+
         let mut file_path = String::from(SHADER_FOLDER);
         file_path.push_str(file_name);
 
-        let contents = fs::read_to_string(file_path).expect("Failed to open file");
+        let contents = fs::read_to_string(file_path)?;
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(file_name),
@@ -95,7 +97,7 @@ impl ShaderBuilder {
 
         self.shader = Some(shader);
         self.label = file_name;
-        self
+        Ok(self)
     }
 
     pub fn add_uniform<T>(mut self, device: &wgpu::Device, label: &'static str, data: T)

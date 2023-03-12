@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{rc::Rc, sync::Arc};
 
 use wgpu::util::DeviceExt;
 
@@ -10,7 +10,7 @@ pub trait Mesh {
 }
 
 pub struct TexturedMesh {
-    pub shader: Rc<Shader>,
+    pub shader: Arc<Shader>,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub index_count: u32,
@@ -35,13 +35,13 @@ impl Mesh for TexturedMesh {
 
         match camera_buffer {
             Some(buffer) => queue.write_buffer(buffer, 0, bytemuck::cast_slice(camera_uniform_slice)),
-            None => println!("[ERROR] Couldn't find camera buffer")
+            None => println!("Couldn't find camera buffer")
         }
     }
 }
 
 impl TexturedMesh {
-    pub fn from(device: &wgpu::Device, vertices: &[Vertex], indices: &[u16], shader: Rc<Shader>, 
+    pub fn from(device: &wgpu::Device, vertices: &[Vertex], indices: &[u16], shader: Arc<Shader>, 
         texture: Texture) -> Result<TexturedMesh, anyhow::Error> {
         let vertex_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
