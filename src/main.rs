@@ -6,16 +6,17 @@ mod mesh;
 mod vertex;
 mod shader;
 mod errors;
-mod editor;
+mod renderer;
 
 use std::{rc::Rc, sync::Arc};
 
-use editor::editor::Editor;
+//use renderer::Editor;
 use egui_wgpu::WgpuConfiguration;
 use log::{info, warn};
 use mesh::{TexturedMesh, Mesh};
 use camera::{Camera, CameraUniform};
 use camera_controller::CameraController;
+use renderer::Renderer;
 use shader::{Shader, ShaderBuilder};
 use test_tree::{VERTICES, INDICES};
 use texture::Texture;
@@ -23,28 +24,31 @@ use wgpu::{InstanceDescriptor, RequestAdapterOptions, RenderPass};
 use winit::{event_loop::{EventLoop, ControlFlow, EventLoopWindowTarget}, window::WindowBuilder, event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode}, dpi::LogicalSize};
 use winit::window::Window;
 
-struct App {
-    window: Window,
+use crate::renderer::{MainRenderer, Editor};
+
+pub struct WgpuStructs {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
+    config: wgpu::SurfaceConfiguration
+}
+
+pub struct RendererResources {
+   camera_controller: CameraController,
+   camera_uniform: CameraUniform,
+   camera: Camera
+}
+
+struct App {
+    window: Window,
+    wgpu_structs: WgpuStructs,
     size: winit::dpi::PhysicalSize<u32>,
     pixels_per_point: f32,
-    camera: Camera,
-    camera_controller: CameraController,
-    camera_uniform: CameraUniform,
-    depth_texture: Texture,
+    renderer_resources: RendererResources,
     shaders: Vec<Arc<Shader>>,
-    meshes: Vec<Box<dyn Mesh + Send + Sync>>,
-    editor: Option<Editor>
+    meshes: Arc<Vec<Box<dyn Mesh + Send + Sync>>>,
+    renderer: Box<dyn Renderer>
 }
-
-struct Renderables {
-    meshes: Vec<Box<dyn Mesh + Send + Sync>>
-}
-
-
 
 impl App {
     async fn new(window: Window, event_loop: &EventLoop<()>) -> App {
@@ -96,7 +100,7 @@ impl App {
         };
         surface.configure(&device, &config);
 
-        let editor = Editor::new(event_loop, &device, &window, surface_format).await;
+        //let editor = Editor::new(event_loop, &device, &window, surface_format).await;
 
         let camera = Self::init_camera(&config);
         let mut camera_uniform = CameraUniform::new();
@@ -104,24 +108,31 @@ impl App {
 
         let camera_controller = CameraController::new(0.2);
 
-        let depth_texture = Texture::create_depth_texture(&device, &config, "Depth texture");
+        let wgpu_structs = WgpuStructs {
+            device,
+            config,
+            surface,
+            queue
+        };
 
+        let renderer_resources = RendererResources {
+            camera_controller,
+            camera,
+            camera_uniform
+        };
+
+        //let renderer = MainRenderer::new(depth_texture);
+        let renderer = Editor::new(event_loop, &wgpu_structs, &window, surface_format).await;
 
         Self {
             window,
-            device,
-            queue,
-            config,
+            wgpu_structs,
             size,
             pixels_per_point,
-            surface,
-            camera,
-            camera_controller,
-            camera_uniform,
-            depth_texture,
-            editor,
-            meshes: vec![],
+            renderer_resources,
+            meshes: Arc::new(vec![]),
             shaders: vec![],
+            renderer: Box::new(renderer)
         }
     }
 
@@ -132,17 +143,20 @@ impl App {
     }
 
     fn add_mesh(&mut self) {
+        let WgpuStructs { device, queue, .. } = &self.wgpu_structs;
+
         let texture_bytes = include_bytes!("textures/happy-tree.png");
-        let diffuse_texture = Texture::from_bytes(texture_bytes, &self.device, &self.queue, "Tree texture").unwrap();
+        let diffuse_texture = Texture::from_bytes(texture_bytes, device, queue, "Tree texture").unwrap();
 
         info!("Tree texture format: {:?}", diffuse_texture.texture.format());
         let default_shader = self.get_shader_by_label("basic_shader.wgsl");
 
         match default_shader {
             Some(shader) => {
-                let textured_mesh = TexturedMesh::from(&self.device, VERTICES, INDICES, shader, diffuse_texture);
+                let textured_mesh = TexturedMesh::from(device, VERTICES, INDICES, shader, diffuse_texture);
+
                 match textured_mesh {
-                    Ok(mesh) => self.meshes.push(Box::new(mesh)),
+                    Ok(mesh) => self.renderer.add_mesh(Box::new(mesh)),
                     Err(e) => warn!("Wasn't able to create mesh: {}", e)
                 }
             },
@@ -152,12 +166,14 @@ impl App {
     }
 
     fn init_shaders(&mut self) -> Result<(), anyhow::Error> {
+        let WgpuStructs { device, config, .. } = &self.wgpu_structs;
+
         let basic_shader = ShaderBuilder::new()
-            .load_shader(&self.device, "basic_shader.wgsl")?
-            .add_texture(&self.device, "texture")
-            .add_uniform::<CameraUniform>(&self.device, "camera_uniform", CameraUniform::new())
+            .load_shader(device, "basic_shader.wgsl")?
+            .add_texture(device, "texture")
+            .add_uniform::<CameraUniform>(device, "camera_uniform", CameraUniform::new())
             //TODO - Replace with logger
-            .build(&self.device, &self.config).expect("Failed to build shader");
+            .build(device, config).expect("Failed to build shader");
 
         self.shaders.push(Arc::new(basic_shader));
         Ok(())
@@ -175,100 +191,32 @@ impl App {
         }
     }
 
-    fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let output = self.surface.get_current_texture()?;
-        let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
+    fn input(&mut self, event: &WindowEvent) -> bool {
+        self.renderer_resources.camera_controller.process_events(event)
+    }
 
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Render Encoder")
-        });
+    fn resize_window(&mut self, new_size: winit::dpi::PhysicalSize<u32>) -> Option<Texture> {
+        let WgpuStructs { config, device, surface, .. } = &mut self.wgpu_structs;
 
-        if !self.editor.is_enabled {
-            {
-                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some("Render pass"),
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment { 
-                        view: &view, 
-                        resolve_target: None, 
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color {
-                                r: 0.1,
-                                g: 0.2,
-                                b: 0.3,
-                                a: 1.0
-                            }),
-                            store: true
-                        }
-                    })],
-                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                        view: &self.depth_texture.view,
-                        depth_ops: Some(wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(1.0),
-                            store: true
-                        }),
-                        stencil_ops: None
-                    })
-                });
-
-                self.meshes.iter().for_each(|mesh| mesh.render(&mut render_pass));
-            }
+        if new_size.width > 0 && new_size.height > 0 {
+            self.size = new_size;
+            config.width = new_size.width;
+            config.height = new_size.height;
+            surface.configure(device, config);
+            let depth_texture = Texture::create_depth_texture(device, config, "Depth texture");
+            return Some(depth_texture)
         }
-        else {
-            self.editor.update_ui_textures(&self.device, &self.queue, &mut encoder, &self.window);
-            {
-                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some("Editor render pass"),
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment { 
-                        view: &view, 
-                        resolve_target: None, 
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Load,
-                            store: true
-                        }
-                    })],
-                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                        view: &self.depth_texture.view,
-                        depth_ops: Some(wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(1.0),
-                            store: true
-                        }),
-                        stencil_ops: None
-                    })
-                });
-                self.editor.render_ui(&mut render_pass);
-            }
-        }
-
-        self.queue.submit(std::iter::once(encoder.finish()));
-        output.present();
-        Ok(())
+        None
     }
 
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>, scale_factor: Option<f32>) {
-        if new_size.width > 0 && new_size.height > 0 {
-            self.size = new_size;
-            self.config.width = new_size.width;
-            self.config.height = new_size.height;
-            self.surface.configure(&self.device, &self.config);
-            self.depth_texture = Texture::create_depth_texture(&self.device, &self.config, "Depth texture");
-        }
-
-        self.editor.resize(new_size);
+        let depth_texture = self.resize_window(new_size);
         if let Some(scale_factor) = scale_factor {
-            self.editor.rescale(scale_factor);
-            self.pixels_per_point = scale_factor;
+            info!("Resized with scale_factor: {}", scale_factor);
         }
+        self.renderer.resize(new_size, scale_factor, depth_texture);
     }
 
-    fn input(&mut self, event: &WindowEvent) -> bool {
-        self.camera_controller.process_events(event)
-    }
-
-    fn update(&mut self) {
-        self.camera_controller.update_camera(&mut self.camera);
-        self.camera_uniform.update_view_proj(&self.camera);
-        self.meshes.iter().for_each(|mesh| mesh.update_camera(&self.queue, &[self.camera_uniform]));
-    }
 }
 
 async fn start() {
@@ -282,15 +230,14 @@ async fn start() {
     if let Err(err) = app.init_shaders() {
         warn!("Failed to initialize shaders: {}", err);
     }
-    app.editor.add_render_resources(Arc::clone(&app.meshes));
-    app.add_mesh();
 
+    app.add_mesh();
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent { ref event, window_id,} if window_id == app.window.id() => if !app.input(event) {
             
-            let ui_event_response = app.editor.update(event);
+            let event_response = app.renderer.handle_event(event);
             
-            if !ui_event_response.consumed {
+            if !event_response.consumed {
                 match event {
                     WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                     WindowEvent::KeyboardInput {
@@ -313,8 +260,8 @@ async fn start() {
         },
         Event::MainEventsCleared => app.window.request_redraw(),
         Event::RedrawRequested(window_id) if window_id == app.window.id() => {
-            app.update();
-            match app.render() {
+            app.renderer.update(&app.wgpu_structs, &mut app.renderer_resources);
+            match app.renderer.render(&app.wgpu_structs, &app.window) {
                 Ok(_) => {},
                 Err(wgpu::SurfaceError::Lost) => app.resize(app.size, Some(app.pixels_per_point)),
                 Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
