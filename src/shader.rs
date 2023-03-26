@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::error::Error;
 use std::fmt::{Debug, Display};
 use std::fs;
+use std::path::Path;
 
 use crate::errors::{GeneralError, ErrorIdentificator};
 use crate::texture::Texture;
@@ -12,7 +13,8 @@ use wgpu::util::DeviceExt;
 
 //Should change because right now I have to start it
 //from src/
-const SHADER_FOLDER: &str = "shaders/";
+const SHADER_FOLDER: &str = "/shaders/";
+const SOURCE_FOLDER: &str = "/src/";
 const BIND_GROUP_LAYOUT_POSTFIX: &str = "_bind_group_layout";
 pub const BIND_GROUP_POSTFIX: &str = "_bind_group";
 
@@ -83,12 +85,15 @@ impl ShaderBuilder {
     }
 
     pub fn load_shader(mut self, device: &wgpu::Device, file_name: &'static str) -> Result<Self, anyhow::Error> {
-        let working_directory = std::env::current_dir()?;
+        let project_root = env!("CARGO_MANIFEST_DIR");
 
-        let mut file_path = String::from(SHADER_FOLDER);
+        let mut file_path = String::from(project_root);
+        file_path.push_str(SOURCE_FOLDER);
+        file_path.push_str(SHADER_FOLDER);
         file_path.push_str(file_name);
+        info!("Loading shader: {}", file_path);
 
-        let contents = fs::read_to_string(file_path)?;
+        let contents = fs::read_to_string(Path::new(&file_path))?;
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(file_name),
