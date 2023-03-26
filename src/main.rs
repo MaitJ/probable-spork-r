@@ -1,12 +1,11 @@
 mod texture;
-mod camera;
-mod camera_controller;
-mod test_tree;
+mod entities;
 mod mesh;
 mod vertex;
 mod shader;
 mod errors;
 mod renderer;
+mod test_tree;
 
 use std::{rc::Rc, sync::Arc};
 
@@ -14,15 +13,15 @@ use std::{rc::Rc, sync::Arc};
 use egui_wgpu::WgpuConfiguration;
 use log::{info, warn};
 use mesh::{TexturedMesh, Mesh};
-use camera::{Camera, CameraUniform};
-use camera_controller::CameraController;
+use entities::{Camera, CameraUniform};
+use entities::CameraController;
 use renderer::Renderer;
 use shader::{Shader, ShaderBuilder};
-use test_tree::{VERTICES, INDICES};
 use texture::Texture;
 use wgpu::{InstanceDescriptor, RequestAdapterOptions, RenderPass};
 use winit::{event_loop::{EventLoop, ControlFlow, EventLoopWindowTarget}, window::WindowBuilder, event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode}, dpi::LogicalSize};
 use winit::window::Window;
+use test_tree::{VERTICES, INDICES};
 
 use crate::renderer::{MainRenderer, Editor};
 
@@ -100,6 +99,7 @@ impl App {
         };
         surface.configure(&device, &config);
 
+        let depth_texture = Texture::create_depth_texture(&device, &config, "depth_texture");
         //let editor = Editor::new(event_loop, &device, &window, surface_format).await;
 
         let camera = Self::init_camera(&config);

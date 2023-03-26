@@ -1,6 +1,6 @@
 use winit::event::{WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
 
-use crate::camera::Camera;
+use crate::entities::Camera;
 
 pub struct CameraController {
     speed: f32,

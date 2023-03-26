@@ -1,8 +1,8 @@
 use std::{rc::Rc, sync::Arc};
 
 use wgpu::util::DeviceExt;
-
-use crate::{vertex::Vertex, shader::{Shader, BIND_GROUP_POSTFIX}, texture::Texture, camera::{CameraUniform, Camera, self}};
+use crate::entities::{Camera, CameraUniform};
+use crate::{vertex::Vertex, shader::{Shader, BIND_GROUP_POSTFIX}, texture::Texture};
 
 pub trait Mesh {
     fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>);

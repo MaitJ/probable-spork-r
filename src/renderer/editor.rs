@@ -1,12 +1,12 @@
-use egui::{ClippedPrimitive, Ui};
+use egui::{ClippedPrimitive, Ui, Vec2, Separator};
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_winit::EventResponse;
 use log::info;
 use wgpu::Color;
 use winit::{window::Window, event_loop::EventLoop, event::WindowEvent};
+use crate::entities::CameraUniform;
 
-use crate::{mesh::Mesh, camera::CameraUniform, WgpuStructs, renderer::Renderer, texture::Texture, RendererResources};
-
+use crate::{mesh::Mesh, WgpuStructs, renderer::Renderer, texture::Texture, RendererResources};
 pub struct Editor {
     depth_texture: Texture,
     winit_state: egui_winit::State,
@@ -57,8 +57,9 @@ impl Editor {
     }
 
     fn setup_callback<'a>(&self, ui: &mut Ui) {
-        let (rect, response) =
-            ui.allocate_exact_size(egui::Vec2::splat(300.0), egui::Sense::drag());
+        let available_size = ui.available_size();
+
+        let (rect, response) = ui.allocate_at_least(available_size, egui::Sense::drag());
 
         let cb = egui_wgpu::CallbackFn::new()
             .prepare(move |device, queue, encoder, paint_callback_resources| {
@@ -85,26 +86,35 @@ impl Editor {
         let raw_input = self.winit_state.take_egui_input(window);
         let full_output = self.ctx.run(raw_input, |ctx| {
             egui::SidePanel::left("Scene panel").show(ctx, |ui| {
+                ui.heading("Scene");
+                ui.add(Separator::default().horizontal());
+
                 if ui.button("Click me").clicked() {
                     // take some action here
                     info!("Pressed hello world button");
                 }
             });
             egui::SidePanel::right("Right panel").show(ctx, |ui| {
+                ui.heading("Properties");
+                ui.add(Separator::default().horizontal());
                 if ui.button("Click me").clicked() {
                     // take some action here
                     info!("Pressed hello world button");
                 }
             });
             egui::TopBottomPanel::bottom("Content browser").show(ctx, |ui| {
+                ui.heading("Content browser");
                 if ui.button("Click me").clicked() {
                     // take some action here
-                    info!("Pressed hello world button");
+                    info!("Content browser button press");
                 }
             });
             egui::CentralPanel::default().show(ctx, |ui| {
                 egui::Frame::canvas(ui.style())
                 .show(ui, |ui| {
+                    let available_size = ui.available_size();
+                    ui.set_min_height(available_size.y * 0.3);
+                    ui.set_min_width(available_size.x * 0.6);
                     self.setup_callback(ui);
                 });
             });
@@ -116,6 +126,10 @@ impl Editor {
         }
         self.renderer.update_buffers(device, queue, encoder, &clipped_primitives, &self.screen_descriptor);
         self.clipped_primitives = clipped_primitives;
+    }
+
+    fn resize_render_window(&mut self, available_size: Vec2) {
+        self.screen_descriptor.size_in_pixels = [available_size.x as u32, available_size.y as u32];
     }
 }
 
@@ -150,7 +164,7 @@ impl Renderer for Editor {
 
 
     fn render<'a>(&'a mut self, wgpu_structs: &WgpuStructs, window: &Window) -> Result<(), wgpu::SurfaceError> {
-        let WgpuStructs { surface, device, queue, config } = wgpu_structs;
+        let WgpuStructs { surface, device, queue, .. } = wgpu_structs;
         let output = surface.get_current_texture()?;
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
