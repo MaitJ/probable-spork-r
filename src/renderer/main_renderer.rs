@@ -9,6 +9,12 @@ impl MainRenderer {
     pub fn new(depth_texture: Texture) -> Self {
         Self { depth_texture, meshes: vec![] }
     }
+
+    fn update(&mut self, wgpu_structs: &WgpuStructs, renderer_resources: &RendererResources) {
+        let queue = &wgpu_structs.queue;
+        let RendererResources { camera_uniform } = renderer_resources;
+        self.meshes.iter().for_each(|mesh| mesh.update_camera(queue, &[*camera_uniform]));
+    }
 }
 
 impl Renderer for MainRenderer {
@@ -16,28 +22,20 @@ impl Renderer for MainRenderer {
         self.meshes.push(mesh);
     }
 
-    fn handle_event(&mut self, event: &winit::event::WindowEvent) -> egui_winit::EventResponse {
+    fn handle_event(&mut self, _event: &winit::event::WindowEvent) -> egui_winit::EventResponse {
         egui_winit::EventResponse { consumed: false, repaint: false }
     }
 
-    fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>, scale_factor: Option<f32>, depth_texture: Option<Texture>) {
+    fn resize(&mut self, _new_size: winit::dpi::PhysicalSize<u32>, _scale_factor: Option<f32>, depth_texture: Option<Texture>) {
         match depth_texture {
             Some(depth_texture) => self.depth_texture = depth_texture,
             None => ()
         }
     }
 
-    fn update(&mut self, wgpu_structs: &WgpuStructs, renderer_resources: &mut RendererResources) {
-        let queue = &wgpu_structs.queue;
-        let RendererResources { camera_controller, camera_uniform, camera } = renderer_resources;
+    fn render<'a>(&'a mut self, wgpu_structs: &WgpuStructs, _window: &winit::window::Window, renderer_resources: &RendererResources) -> Result<(), wgpu::SurfaceError> {
+        self.update(wgpu_structs, renderer_resources);
 
-        camera_controller.update_camera(camera);
-        camera_uniform.update_view_proj(camera);
-
-        self.meshes.iter().for_each(|mesh| mesh.update_camera(queue, &[*camera_uniform]));
-    }
-
-    fn render<'a>(&'a mut self, wgpu_structs: &WgpuStructs, window: &winit::window::Window) -> Result<(), wgpu::SurfaceError> {
         let WgpuStructs { surface, device, queue, .. } = wgpu_structs;
         let output = surface.get_current_texture()?;
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());

@@ -6,24 +6,25 @@ mod shader;
 mod errors;
 mod renderer;
 mod test_tree;
+mod world;
+mod assets;
 
-use std::{rc::Rc, sync::Arc};
-
-//use renderer::Editor;
-use egui_wgpu::WgpuConfiguration;
+use std::sync::Arc;
 use log::{info, warn};
-use mesh::{TexturedMesh, Mesh};
+use mesh::TexturedMesh;
 use entities::{Camera, CameraUniform};
 use entities::CameraController;
 use renderer::Renderer;
 use shader::{Shader, ShaderBuilder};
 use texture::Texture;
-use wgpu::{InstanceDescriptor, RequestAdapterOptions, RenderPass};
-use winit::{event_loop::{EventLoop, ControlFlow, EventLoopWindowTarget}, window::WindowBuilder, event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode}, dpi::LogicalSize};
+use wgpu::{InstanceDescriptor, RequestAdapterOptions};
+use winit::{event_loop::{EventLoop, ControlFlow}, window::WindowBuilder, event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode}, dpi::LogicalSize};
 use winit::window::Window;
 use test_tree::{VERTICES, INDICES};
+use world::Scene;
 
-use crate::renderer::{MainRenderer, Editor};
+use crate::assets::TestScript;
+use crate::renderer::Editor;
 
 pub struct WgpuStructs {
     surface: wgpu::Surface,
@@ -33,9 +34,7 @@ pub struct WgpuStructs {
 }
 
 pub struct RendererResources {
-   camera_controller: CameraController,
    camera_uniform: CameraUniform,
-   camera: Camera
 }
 
 struct App {
@@ -45,8 +44,10 @@ struct App {
     pixels_per_point: f32,
     renderer_resources: RendererResources,
     shaders: Vec<Arc<Shader>>,
-    meshes: Arc<Vec<Box<dyn Mesh + Send + Sync>>>,
-    renderer: Box<dyn Renderer>
+    renderer: Box<dyn Renderer>,
+    scene: Scene,
+    camera_controller: CameraController,
+    camera: Camera
 }
 
 impl App {
@@ -100,7 +101,7 @@ impl App {
         surface.configure(&device, &config);
 
         let depth_texture = Texture::create_depth_texture(&device, &config, "depth_texture");
-        //let editor = Editor::new(event_loop, &device, &window, surface_format).await;
+        //let renderer = MainRenderer::new(depth_texture);
 
         let camera = Self::init_camera(&config);
         let mut camera_uniform = CameraUniform::new();
@@ -116,12 +117,9 @@ impl App {
         };
 
         let renderer_resources = RendererResources {
-            camera_controller,
-            camera,
             camera_uniform
         };
 
-        //let renderer = MainRenderer::new(depth_texture);
         let renderer = Editor::new(event_loop, &wgpu_structs, &window, surface_format).await;
 
         Self {
@@ -130,9 +128,11 @@ impl App {
             size,
             pixels_per_point,
             renderer_resources,
-            meshes: Arc::new(vec![]),
             shaders: vec![],
-            renderer: Box::new(renderer)
+            renderer: Box::new(renderer),
+            scene: Scene::new(),
+            camera_controller,
+            camera
         }
     }
 
@@ -192,7 +192,7 @@ impl App {
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
-        self.renderer_resources.camera_controller.process_events(event)
+        self.camera_controller.process_events(event)
     }
 
     fn resize_window(&mut self, new_size: winit::dpi::PhysicalSize<u32>) -> Option<Texture> {
@@ -217,6 +217,13 @@ impl App {
         self.renderer.resize(new_size, scale_factor, depth_texture);
     }
 
+    fn update(&mut self) {
+        let RendererResources { camera_uniform } = &mut self.renderer_resources;
+
+        self.camera_controller.update_camera(&mut self.camera);
+        camera_uniform.update_view_proj(&self.camera);
+    }
+
 }
 
 async fn start() {
@@ -231,7 +238,11 @@ async fn start() {
         warn!("Failed to initialize shaders: {}", err);
     }
 
+    app.scene.add_script_entity(Box::new(TestScript::default()));
+
     app.add_mesh();
+
+    app.scene.call_user_script_setups();
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent { ref event, window_id,} if window_id == app.window.id() => if !app.input(event) {
             
@@ -260,8 +271,11 @@ async fn start() {
         },
         Event::MainEventsCleared => app.window.request_redraw(),
         Event::RedrawRequested(window_id) if window_id == app.window.id() => {
-            app.renderer.update(&app.wgpu_structs, &mut app.renderer_resources);
-            match app.renderer.render(&app.wgpu_structs, &app.window) {
+            app.scene.call_user_script_updates();
+
+            app.update();
+
+            match app.renderer.render(&app.wgpu_structs, &app.window, &app.renderer_resources) {
                 Ok(_) => {},
                 Err(wgpu::SurfaceError::Lost) => app.resize(app.size, Some(app.pixels_per_point)),
                 Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,

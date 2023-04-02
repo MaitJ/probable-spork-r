@@ -8,11 +8,9 @@ use crate::errors::{GeneralError, ErrorIdentificator};
 use crate::texture::Texture;
 use crate::vertex::Vertex;
 use bytemuck::{Pod, Zeroable};
-use log::{debug, info};
+use log::info;
 use wgpu::util::DeviceExt;
 
-//Should change because right now I have to start it
-//from src/
 const SHADER_FOLDER: &str = "/shaders/";
 const SOURCE_FOLDER: &str = "/src/";
 const BIND_GROUP_LAYOUT_POSTFIX: &str = "_bind_group_layout";

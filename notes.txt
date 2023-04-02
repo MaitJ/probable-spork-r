@@ -1,54 +1,6 @@
-Make separate render part to the engine.
-For example an abstracted class that handles updating of game objects,
-which includes meshes, camera, and game objects.
-So this engine side could be cloned into the editor or into the base game,
-and the same functions could be set up once and used in two places.
+struct BaseEntity;
 
-struct GameObject {
-    mesh: TexturedMesh,
-    transform: Transform,
-    ...
+struct GameEntity<T: Script> {
+  script: Option<T>,
+  entity: BaseEntity
 }
-
-struct BaseObject {
-    objects: Vec<>
-}
-
-//Implement methods for getting game objects and so on, mby even have Rc's
-struct Scene {
-    objects: Vec<dyn BaseObject>
-}
-
-trait BaseObject {
-    fn get_children();
-}
-
-struct Engine {
-    scene: Scene
-    renderer: Renderer
-
-    fn compile_render_resources() -> RenderResources {}
-    fn render_frame()
-}
-
-trait Renderer {
-    fn setup(scene: Scene);
-    fn add_renderable(mesh: Box<dyn Mesh>);
-    fn update(device, ...);
-    fn render(render_pass, ...);
-}
-
-struct Editor {
-}
-
-impl Renderer for Editor {
-
-}
-
-struct Game {
-}
-
-impl Renderer for Game {
-
-}
-

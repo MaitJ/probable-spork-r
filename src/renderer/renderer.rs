@@ -11,6 +11,5 @@ pub trait Renderer {
     fn add_mesh(&mut self, mesh: Box<dyn Mesh + Send + Sync>);
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>, scale_factor: Option<f32>, depth_texture: Option<Texture>);
     fn handle_event(&mut self, event: &WindowEvent) -> EventResponse;
-    fn update(&mut self, wgpu_structs: &WgpuStructs, renderer_resources: &mut RendererResources);
-    fn render<'a>(&'a mut self, wgpu_structs: &WgpuStructs, window: &Window) -> Result<(), wgpu::SurfaceError>;
+    fn render<'a>(&'a mut self, wgpu_structs: &WgpuStructs, window: &Window, renderer_resources: &RendererResources) -> Result<(), wgpu::SurfaceError>;
 }
