@@ -2,26 +2,21 @@ use crate::{renderer::Renderer, WgpuStructs, RendererResources, mesh::Mesh, text
 
 pub struct MainRenderer {
     depth_texture: Texture,
-    meshes: Vec<Box<dyn Mesh>>,
 }
 
 impl MainRenderer {
     pub fn new(depth_texture: Texture) -> Self {
-        Self { depth_texture, meshes: vec![] }
+        Self { depth_texture }
     }
 
     fn update(&mut self, wgpu_structs: &WgpuStructs, renderer_resources: &RendererResources) {
         let queue = &wgpu_structs.queue;
-        let RendererResources { camera_uniform } = renderer_resources;
-        self.meshes.iter().for_each(|mesh| mesh.update_camera(queue, &[*camera_uniform]));
+        let RendererResources { camera_uniform, .. } = renderer_resources;
+        renderer_resources.renderables.iter().for_each(|mesh| mesh.update_camera(queue, &[*camera_uniform]));
     }
 }
 
 impl Renderer for MainRenderer {
-    fn add_mesh(&mut self, mesh: Box<dyn Mesh + Send + Sync>) {
-        self.meshes.push(mesh);
-    }
-
     fn handle_event(&mut self, _event: &winit::event::WindowEvent) -> egui_winit::EventResponse {
         egui_winit::EventResponse { consumed: false, repaint: false }
     }
@@ -70,7 +65,7 @@ impl Renderer for MainRenderer {
                 })
             });
 
-            self.meshes.iter().for_each(|mesh| mesh.render(&mut render_pass));
+            renderer_resources.renderables.iter().for_each(|mesh| mesh.render(&mut render_pass));
         }
 
         queue.submit(std::iter::once(encoder.finish()));

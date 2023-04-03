@@ -1,4 +1,6 @@
-use crate::entities::{Entity, Script};
+use std::rc::Rc;
+
+use crate::{entities::{Entity, Script}, mesh::TexturedMesh};
 
 pub struct Scene {
     entity_count: u32,
@@ -26,8 +28,12 @@ impl Scene {
         self.entities.get_mut((self.entity_count - 1) as usize).unwrap()
     }
 
-    pub fn add_script_entity(&mut self, script: Box<dyn Script>) {
-        self.add_empty_entity().add_script(script);
+    pub fn get_renderables(&self) -> Vec<Rc<TexturedMesh>> {
+        self.entities
+            .iter()
+            .map(|entity| entity.get_component::<TexturedMesh>())
+            .filter_map(|e| e)
+            .collect()
     }
 
     pub fn call_user_script_setups(&mut self) {

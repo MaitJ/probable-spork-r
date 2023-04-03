@@ -15,7 +15,6 @@ pub struct Editor {
     renderer: egui_wgpu::Renderer,
     screen_descriptor: ScreenDescriptor,
     clipped_primitives: Vec<ClippedPrimitive>,
-    renderables: Vec<Box<dyn Mesh + Send + Sync>>,
     pub is_enabled: bool
 }
 
@@ -23,12 +22,11 @@ type UpdateCallback = dyn Fn(
         &wgpu::Device,
         &wgpu::Queue,
         &mut wgpu::CommandEncoder,
-        &Vec<Box<dyn Mesh + Send + Sync>>,
-        &CameraUniform
+        &RendererResources
     ) + Send + Sync;
 
 type PaintCallback =
-    dyn for<'a, 'b> Fn(PaintCallbackInfo, &'a mut wgpu::RenderPass<'b>, &'b Vec<Box<dyn Mesh + Send + Sync>>) + Send + Sync;
+    dyn for<'a, 'b> Fn(PaintCallbackInfo, &'a mut wgpu::RenderPass<'b>, &'b RendererResources) + Send + Sync;
 
 struct GamePreviewCallback {
     update: Box<UpdateCallback>,
@@ -73,21 +71,19 @@ impl Editor {
             screen_descriptor,
             clipped_primitives: vec![],
             is_enabled: true,
-            renderables: vec![]
         }
     }
 
     fn setup_callback<'a>(&self, ui: &mut Ui) {
         let available_size = ui.available_size();
         let (rect, _response) = ui.allocate_at_least(available_size, egui::Sense::drag());
-        info!("setup_callback");
 
         let cb = GamePreviewCallback {
-            update: Box::new(|_device, queue, _encoder, meshes, camera_uniform| {
-                meshes.iter().for_each(|mesh| mesh.update_camera(queue, &[*camera_uniform]));
+            update: Box::new(|_device, queue, _encoder, renderer_resources| {
+                renderer_resources.renderables.iter().for_each(|mesh| mesh.update_camera(queue, &[renderer_resources.camera_uniform]));
             }),
-            render: Box::new(|_info, rpass, meshes| {
-                meshes.iter().for_each(|mesh| mesh.render(rpass));
+            render: Box::new(|_info, rpass, renderer_resources| {
+                renderer_resources.renderables.iter().for_each(|mesh| mesh.render(rpass));
             })
         };
 
@@ -100,7 +96,7 @@ impl Editor {
     }
 
     pub fn update_ui_textures(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, 
-            window: &winit::window::Window) {
+            window: &winit::window::Window, renderer_resources: &RendererResources) {
 
         let raw_input = self.winit_state.take_egui_input(window);
         let full_output = self.ctx.run(raw_input, |ctx| {
@@ -108,7 +104,7 @@ impl Editor {
                 ui.heading("Scene");
                 ui.add(Separator::default().horizontal());
 
-                self.renderables
+                renderer_resources.renderables
                     .iter()
                     .enumerate()
                     .for_each(|(i, _mesh)| {
@@ -169,8 +165,7 @@ impl Editor {
                         device,
                         queue,
                         encoder,
-                        &self.renderables,
-                        &renderer_resources.camera_uniform
+                        renderer_resources
                     );
                 },
                 _ => ()
@@ -178,7 +173,8 @@ impl Editor {
         }
     }
 
-    fn call_game_preview_render<'a>(&'a self, render_pass: &mut RenderPass<'a>, clipped_primitive: &Vec<ClippedPrimitive>) {
+    fn call_game_preview_render<'a>(&'a self, render_pass: &mut RenderPass<'a>, clipped_primitive: &Vec<ClippedPrimitive>, 
+        renderer_resources: &'a RendererResources) {
         for egui::epaint::ClippedPrimitive {
             clip_rect,
             primitive
@@ -216,26 +212,19 @@ impl Editor {
                             screen_size_px: self.screen_descriptor.size_in_pixels,
                         },
                         render_pass,
-                        &self.renderables
+                        renderer_resources
                     );
                 },
                 _ => ()
             }
         }
     }
-
-    fn update(&mut self, wgpu_structs: &WgpuStructs, renderer_resources: &crate::RendererResources) {
-        let RendererResources { camera_uniform } = &renderer_resources;
-        self.renderables.iter().for_each(|mesh| mesh.update_camera(&wgpu_structs.queue, &[*camera_uniform]));
-    }
 }
 
 impl Renderer for Editor {
-    fn add_mesh(&mut self, mesh: Box<dyn Mesh + Send + Sync>) {
-        self.renderables.push(mesh);
-    }
 
     fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>, scale_factor: Option<f32>, depth_texture: Option<Texture>) {
+
         match depth_texture {
             Some(depth_texture) => self.depth_texture = depth_texture,
             None => ()
@@ -250,8 +239,6 @@ impl Renderer for Editor {
 
 
     fn render<'a>(&'a mut self, wgpu_structs: &WgpuStructs, window: &Window, renderer_resources: &RendererResources) -> Result<(), wgpu::SurfaceError> {
-        self.update(wgpu_structs, renderer_resources);
-
         let WgpuStructs { surface, device, queue, .. } = wgpu_structs;
         let output = surface.get_current_texture()?;
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -260,7 +247,7 @@ impl Renderer for Editor {
             label: Some("Render Encoder")
         });
 
-        self.update_ui_textures(device, queue, &mut encoder, window);
+        self.update_ui_textures(device, queue, &mut encoder, window, renderer_resources);
         self.call_game_preview_update(device, queue, &mut encoder, &self.clipped_primitives, renderer_resources);
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -288,7 +275,7 @@ impl Renderer for Editor {
                 })
             });
             self.renderer.render(&mut render_pass, &self.clipped_primitives, &self.screen_descriptor);
-            self.call_game_preview_render(&mut render_pass, &self.clipped_primitives);
+            self.call_game_preview_render(&mut render_pass, &self.clipped_primitives, renderer_resources);
         }
 
         queue.submit(std::iter::once(encoder.finish()));

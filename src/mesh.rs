@@ -1,7 +1,7 @@
 use std::{rc::Rc, sync::Arc};
 
 use wgpu::util::DeviceExt;
-use crate::entities::{Camera, CameraUniform};
+use crate::entities::{Camera, CameraUniform, Component};
 use crate::{vertex::Vertex, shader::{Shader, BIND_GROUP_POSTFIX}, texture::Texture};
 
 pub trait Mesh {
@@ -17,6 +17,16 @@ pub struct TexturedMesh {
     pub texture: Texture,
     pub texture_bind_group: wgpu::BindGroup,
     pub camera_bind_group: wgpu::BindGroup
+}
+
+impl Component for TexturedMesh {
+    fn setup(&mut self) {
+    }
+    fn update(&mut self) {
+    }
+    fn as_any(self: Rc<Self>) -> Rc<dyn std::any::Any> {
+        self
+    }
 }
 
 impl Mesh for TexturedMesh {
