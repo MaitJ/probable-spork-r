@@ -6,7 +6,6 @@ use crate::{WgpuStructs, RendererResources, texture::Texture, renderer::Mesh};
 
 pub trait Renderer {
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>, scale_factor: Option<f32>, depth_texture: Option<Texture>);
-    fn handle_event(&mut self, event: &WindowEvent) -> EventResponse;
     fn render<'a>(&'a mut self, wgpu_structs: &WgpuStructs, window: &Window, renderer_resources: &RendererResources) -> Result<(), wgpu::SurfaceError>;
 }
 

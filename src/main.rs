@@ -8,9 +8,11 @@ mod test_tree;
 mod world;
 mod assets;
 mod engine;
+mod editor;
 
 use std::rc::Rc;
 use std::sync::Arc;
+use egui::FullOutput;
 use log::{info, warn};
 use renderer::TexturedMesh;
 use entities::CameraUniform;
@@ -22,9 +24,9 @@ use winit::{event_loop::{EventLoop, ControlFlow}, window::WindowBuilder, event::
 use winit::window::Window;
 use test_tree::{VERTICES, INDICES};
 
-use crate::assets::TestScript;
+use crate::{assets::TestScript, editor::Editor};
 use crate::engine::Engine;
-use crate::renderer::{Editor, MainRenderer};
+use crate::renderer::{EditorRenderer, MainRenderer};
 
 pub struct WgpuStructs {
     surface: wgpu::Surface,
@@ -200,6 +202,7 @@ async fn start() {
     {
         let mut app = App::new(window).await;
         let mut engine = Engine::new(&app.wgpu_structs.config);
+        let mut editor = Editor::new(&event_loop);
 
         let mut renderer_resources = RendererResources {
             camera_uniform: CameraUniform::new(),
@@ -227,14 +230,16 @@ async fn start() {
             }
         }
 
-        let mut renderer = Editor::new(&event_loop, &app.wgpu_structs, &app.window, app.wgpu_structs.config.format).await;
+        let pixels_per_point = editor.pixels_per_point;
+        info!("pixels_per_point: {}", pixels_per_point);
+        let mut renderer = EditorRenderer::new(&app.wgpu_structs, &app.window, app.wgpu_structs.config.format, pixels_per_point).await;
         //let mut renderer = MainRenderer::new(&app.wgpu_structs.device, &app.wgpu_structs.config);
 
         engine.scene.call_user_script_setups();
         event_loop.run(move |event, _, control_flow| match event {
             Event::WindowEvent { ref event, window_id,} if window_id == app.window.id() => if !engine.input(event) {
                 
-                let event_response = renderer.handle_event(event);
+                let event_response = editor.handle_event(event);
                 
                 if !event_response.consumed {
                     match event {
@@ -268,6 +273,8 @@ async fn start() {
                 engine.scene.call_user_script_updates();
                 engine.update(&mut renderer_resources);
 
+                let editor_output = editor.draw(&app.window, &renderer_resources);
+                renderer.update_ui(editor_output.0, editor_output.1);
                 renderer_resources.renderables = engine.scene.get_renderables();
                 match renderer.render(&app.wgpu_structs, &app.window, &renderer_resources) {
                     Ok(_) => {},

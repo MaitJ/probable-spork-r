@@ -1,65 +1,38 @@
 use egui::epaint::Primitive;
-use egui::{ClippedPrimitive, Ui, Separator, PaintCallbackInfo, RawInput, FullOutput};
+use egui::{ClippedPrimitive, Ui, Separator, PaintCallbackInfo, RawInput, FullOutput, TexturesDelta};
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_winit::EventResponse;
 use log::info;
 use wgpu::{Color, RenderPass};
 use winit::{window::Window, event_loop::EventLoop, event::WindowEvent};
+use crate::editor::GamePreviewCallback;
 use crate::entities::CameraUniform;
 
 use crate::{renderer::Mesh, WgpuStructs, renderer::Renderer, texture::Texture, RendererResources};
 
 use super::RendererLoop;
-pub struct Editor {
+pub struct EditorRenderer {
     depth_texture: Texture,
-    winit_state: egui_winit::State,
-    ctx: egui::Context,
     renderer: egui_wgpu::Renderer,
     screen_descriptor: ScreenDescriptor,
     clipped_primitives: Vec<ClippedPrimitive>,
+    pixels_per_point: f32,
+    textures_delta: TexturesDelta,
     pub is_enabled: bool
 }
 
-type UpdateCallback = dyn Fn(
-        &wgpu::Device,
-        &wgpu::Queue,
-        &mut wgpu::CommandEncoder,
-        &RendererResources
-    ) + Send + Sync;
 
-type PaintCallback =
-    dyn for<'a, 'b> Fn(PaintCallbackInfo, &'a mut wgpu::RenderPass<'b>, &'b RendererResources) + Send + Sync;
-
-struct GamePreviewCallback {
-    update: Box<UpdateCallback>,
-    render: Box<PaintCallback>
-}
-
-impl Editor {
-    pub async fn new(event_loop: &EventLoop<()>, wgpu_structs: &WgpuStructs, window: &Window, texture_format: wgpu::TextureFormat) -> Self {
+impl EditorRenderer {
+    pub async fn new(wgpu_structs: &WgpuStructs, window: &Window, 
+        texture_format: wgpu::TextureFormat, pixels_per_point: f32) -> Self {
         info!("Creating editor");
 
         let WgpuStructs { device, config, .. } = wgpu_structs;
 
-        let mut winit_state = egui_winit::State::new(event_loop);
-        let ctx = egui::Context::default();
-        let mut renderer = egui_wgpu::Renderer::new(device, texture_format, Some(crate::Texture::DEPTH_FORMAT), 1);
-        let meshes: Vec<Box<dyn Mesh + Send + Sync>> = vec![];
-
-        let camera_uniform = CameraUniform::new();
-
-        renderer.paint_callback_resources.insert(meshes);
-        renderer.paint_callback_resources.insert(camera_uniform);
-
-        info!("Pixels per point: {}", ctx.pixels_per_point());
-
-        let scaled_pixels_per_point = ctx.pixels_per_point() * 2.0;
-        ctx.set_pixels_per_point(scaled_pixels_per_point);
-
-        winit_state.set_pixels_per_point(scaled_pixels_per_point);
+        let renderer = egui_wgpu::Renderer::new(device, texture_format, Some(crate::Texture::DEPTH_FORMAT), 1);
 
         let screen_descriptor = ScreenDescriptor {
-            pixels_per_point: scaled_pixels_per_point,
+            pixels_per_point: pixels_per_point,
             size_in_pixels: window.inner_size().into()
         };
 
@@ -67,85 +40,28 @@ impl Editor {
 
         Self {
             depth_texture,
-            winit_state,
-            ctx,
             renderer,
             screen_descriptor,
             clipped_primitives: vec![],
             is_enabled: true,
+            pixels_per_point: pixels_per_point,
+            textures_delta: TexturesDelta::default()
         }
     }
-
-    fn setup_callback<'a>(&self, ui: &mut Ui) {
-        let available_size = ui.available_size();
-        let (rect, _response) = ui.allocate_at_least(available_size, egui::Sense::drag());
-
-        let cb = GamePreviewCallback {
-            update: Box::new(|_device, queue, _encoder, renderer_resources| RendererLoop::update(queue, renderer_resources)),
-            render: Box::new(|_info, rpass, renderer_resources| RendererLoop::render(rpass, renderer_resources))
-        };
-
-        let callback = egui::PaintCallback {
-            rect,
-            callback: std::sync::Arc::new(cb),
-        };
-
-        ui.painter().add(callback);
-    }
-
-    fn draw_egui(&self, raw_input: RawInput, renderer_resources: &RendererResources) -> FullOutput {
-        self.ctx.run(raw_input, |ctx| {
-            egui::SidePanel::left("Scene panel").show(ctx, |ui| {
-                ui.heading("Scene");
-                ui.add(Separator::default().horizontal());
-
-                renderer_resources.renderables
-                    .iter()
-                    .enumerate()
-                    .for_each(|(i, _mesh)| {
-                        ui.label(format!("Mesh {}", i));
-                    })
-            });
-            egui::SidePanel::right("Right panel").show(ctx, |ui| {
-                ui.heading("Properties");
-                ui.add(Separator::default().horizontal());
-                if ui.button("Click me").clicked() {
-                    // take some action here
-                    info!("Pressed hello world button");
-                }
-            });
-            egui::TopBottomPanel::bottom("Content browser").show(ctx, |ui| {
-                ui.heading("Content browser");
-                ui.add(Separator::default().horizontal());
-                if ui.button("Click me").clicked() {
-                    // take some action here
-                    info!("Content browser button press");
-                }
-            });
-            egui::CentralPanel::default().show(ctx, |ui| {
-                egui::Frame::canvas(ui.style())
-                .show(ui, |ui| {
-                    let available_size = ui.available_size();
-                    ui.set_min_height(available_size.y * 0.3);
-                    ui.set_min_width(available_size.x * 0.6);
-                    self.setup_callback(ui);
-                });
-            });
-        })
+    
+    pub fn update_ui(&mut self, textures_delta: TexturesDelta, clipped_primitives: Vec<ClippedPrimitive>) {
+        self.clipped_primitives = clipped_primitives;
+        self.textures_delta = textures_delta;
     }
 
     pub fn update_ui_textures(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, 
-            window: &winit::window::Window, renderer_resources: &RendererResources) {
+            window: &winit::window::Window) {
 
-        let raw_input = self.winit_state.take_egui_input(window);
-        let full_output = self.draw_egui(raw_input, renderer_resources);
 
-        let clipped_primitives = self.ctx.tessellate(full_output.shapes); 
-        for (id, image_delta) in full_output.textures_delta.set {
-            self.renderer.update_texture(device, queue, id, &image_delta);
+        for (id, image_delta) in self.textures_delta.set.iter() {
+            self.renderer.update_texture(device, queue, *id, &image_delta);
         }
-        self.renderer.update_buffers(device, queue, encoder, &clipped_primitives, &self.screen_descriptor);
-        self.clipped_primitives = clipped_primitives;
+        self.renderer.update_buffers(device, queue, encoder, &self.clipped_primitives, &self.screen_descriptor);
     }
     
     fn call_game_preview_update(&self, device: &wgpu::Device, queue: &wgpu::Queue, 
@@ -189,7 +105,7 @@ impl Editor {
                         continue;
                     };
 
-                    let pixels_per_point = self.ctx.pixels_per_point();
+                    let pixels_per_point = self.pixels_per_point;
 
                     {
 
@@ -223,7 +139,7 @@ impl Editor {
     }
 }
 
-impl Renderer for Editor {
+impl Renderer for EditorRenderer {
     fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>, scale_factor: Option<f32>, depth_texture: Option<Texture>) {
 
         match depth_texture {
@@ -233,11 +149,11 @@ impl Renderer for Editor {
 
         self.screen_descriptor.size_in_pixels = size.into();
 
+        //TODO - Fix this thing so that when switching monitors with different dpi works
         if let Some(pixels_per_point) = scale_factor {
             self.screen_descriptor.pixels_per_point = pixels_per_point;
         }
     }
-
 
     fn render<'a>(&'a mut self, wgpu_structs: &WgpuStructs, window: &Window, renderer_resources: &RendererResources) -> Result<(), wgpu::SurfaceError> {
         let WgpuStructs { surface, device, queue, .. } = wgpu_structs;
@@ -248,7 +164,7 @@ impl Renderer for Editor {
             label: Some("Render Encoder")
         });
 
-        self.update_ui_textures(device, queue, &mut encoder, window, renderer_resources);
+        self.update_ui_textures(device, queue, &mut encoder, window);
         self.call_game_preview_update(device, queue, &mut encoder, &self.clipped_primitives, renderer_resources);
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -285,7 +201,4 @@ impl Renderer for Editor {
     }
 
 
-    fn handle_event(&mut self, event: &WindowEvent) -> EventResponse {
-        self.winit_state.on_event(&self.ctx, event)
-    }
 }

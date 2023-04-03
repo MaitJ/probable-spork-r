@@ -13,10 +13,6 @@ impl MainRenderer {
 }
 
 impl Renderer for MainRenderer {
-    fn handle_event(&mut self, _event: &winit::event::WindowEvent) -> egui_winit::EventResponse {
-        egui_winit::EventResponse { consumed: false, repaint: false }
-    }
-
     fn resize(&mut self, _new_size: winit::dpi::PhysicalSize<u32>, _scale_factor: Option<f32>, depth_texture: Option<Texture>) {
         match depth_texture {
             Some(depth_texture) => self.depth_texture = depth_texture,
