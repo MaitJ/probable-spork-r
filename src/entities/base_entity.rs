@@ -1,6 +1,6 @@
 use log::info;
 
-use crate::mesh::{TexturedMesh, Mesh};
+use crate::renderer::{TexturedMesh, Mesh};
 use std::{any::Any, rc::Rc};
 
 

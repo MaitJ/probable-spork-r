@@ -1,5 +1,5 @@
 use egui::epaint::Primitive;
-use egui::{ClippedPrimitive, Ui, Separator, PaintCallbackInfo};
+use egui::{ClippedPrimitive, Ui, Separator, PaintCallbackInfo, RawInput, FullOutput};
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_winit::EventResponse;
 use log::info;
@@ -7,7 +7,9 @@ use wgpu::{Color, RenderPass};
 use winit::{window::Window, event_loop::EventLoop, event::WindowEvent};
 use crate::entities::CameraUniform;
 
-use crate::{mesh::Mesh, WgpuStructs, renderer::Renderer, texture::Texture, RendererResources};
+use crate::{renderer::Mesh, WgpuStructs, renderer::Renderer, texture::Texture, RendererResources};
+
+use super::RendererLoop;
 pub struct Editor {
     depth_texture: Texture,
     winit_state: egui_winit::State,
@@ -79,12 +81,8 @@ impl Editor {
         let (rect, _response) = ui.allocate_at_least(available_size, egui::Sense::drag());
 
         let cb = GamePreviewCallback {
-            update: Box::new(|_device, queue, _encoder, renderer_resources| {
-                renderer_resources.renderables.iter().for_each(|mesh| mesh.update_camera(queue, &[renderer_resources.camera_uniform]));
-            }),
-            render: Box::new(|_info, rpass, renderer_resources| {
-                renderer_resources.renderables.iter().for_each(|mesh| mesh.render(rpass));
-            })
+            update: Box::new(|_device, queue, _encoder, renderer_resources| RendererLoop::update(queue, renderer_resources)),
+            render: Box::new(|_info, rpass, renderer_resources| RendererLoop::render(rpass, renderer_resources))
         };
 
         let callback = egui::PaintCallback {
@@ -95,11 +93,8 @@ impl Editor {
         ui.painter().add(callback);
     }
 
-    pub fn update_ui_textures(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, 
-            window: &winit::window::Window, renderer_resources: &RendererResources) {
-
-        let raw_input = self.winit_state.take_egui_input(window);
-        let full_output = self.ctx.run(raw_input, |ctx| {
+    fn draw_egui(&self, raw_input: RawInput, renderer_resources: &RendererResources) -> FullOutput {
+        self.ctx.run(raw_input, |ctx| {
             egui::SidePanel::left("Scene panel").show(ctx, |ui| {
                 ui.heading("Scene");
                 ui.add(Separator::default().horizontal());
@@ -136,7 +131,14 @@ impl Editor {
                     self.setup_callback(ui);
                 });
             });
-        });
+        })
+    }
+
+    pub fn update_ui_textures(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, 
+            window: &winit::window::Window, renderer_resources: &RendererResources) {
+
+        let raw_input = self.winit_state.take_egui_input(window);
+        let full_output = self.draw_egui(raw_input, renderer_resources);
 
         let clipped_primitives = self.ctx.tessellate(full_output.shapes); 
         for (id, image_delta) in full_output.textures_delta.set {
@@ -222,7 +224,6 @@ impl Editor {
 }
 
 impl Renderer for Editor {
-
     fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>, scale_factor: Option<f32>, depth_texture: Option<Texture>) {
 
         match depth_texture {

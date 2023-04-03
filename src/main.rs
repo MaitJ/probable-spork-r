@@ -1,6 +1,5 @@
 mod texture;
 mod entities;
-mod mesh;
 mod vertex;
 mod shader;
 mod errors;
@@ -8,24 +7,24 @@ mod renderer;
 mod test_tree;
 mod world;
 mod assets;
+mod engine;
 
 use std::rc::Rc;
 use std::sync::Arc;
 use log::{info, warn};
-use mesh::TexturedMesh;
-use entities::{Camera, CameraUniform, Entity};
-use entities::CameraController;
-use renderer::Renderer;
+use renderer::TexturedMesh;
+use entities::CameraUniform;
+use renderer::{Renderer};
 use shader::{Shader, ShaderBuilder};
 use texture::Texture;
 use wgpu::{InstanceDescriptor, RequestAdapterOptions};
 use winit::{event_loop::{EventLoop, ControlFlow}, window::WindowBuilder, event::{Event, WindowEvent, KeyboardInput, ElementState, VirtualKeyCode}, dpi::LogicalSize};
 use winit::window::Window;
 use test_tree::{VERTICES, INDICES};
-use world::Scene;
 
 use crate::assets::TestScript;
-use crate::renderer::Editor;
+use crate::engine::Engine;
+use crate::renderer::{Editor, MainRenderer};
 
 pub struct WgpuStructs {
     surface: wgpu::Surface,
@@ -44,11 +43,7 @@ struct App {
     wgpu_structs: WgpuStructs,
     size: winit::dpi::PhysicalSize<u32>,
     pixels_per_point: f32,
-    renderer_resources: RendererResources,
-    shaders: Vec<Arc<Shader>>,
-    scene: Scene,
-    camera_controller: CameraController,
-    camera: Camera
+    shaders: Vec<Arc<Shader>>
 }
 
 impl App {
@@ -101,14 +96,7 @@ impl App {
         };
         surface.configure(&device, &config);
 
-        let depth_texture = Texture::create_depth_texture(&device, &config, "depth_texture");
-        //let renderer = MainRenderer::new(depth_texture);
 
-        let camera = Self::init_camera(&config);
-        let mut camera_uniform = CameraUniform::new();
-        camera_uniform.update_view_proj(&camera);
-
-        let camera_controller = CameraController::new(0.2);
 
         let wgpu_structs = WgpuStructs {
             device,
@@ -117,22 +105,12 @@ impl App {
             queue
         };
 
-        let renderer_resources = RendererResources {
-            camera_uniform,
-            renderables: vec![]
-        };
-
-
         Self {
             window,
             wgpu_structs,
             size,
             pixels_per_point,
-            renderer_resources,
             shaders: vec![],
-            scene: Scene::new(),
-            camera_controller,
-            camera
         }
     }
 
@@ -185,21 +163,6 @@ impl App {
         Ok(())
     }
 
-    fn init_camera(config: &wgpu::SurfaceConfiguration) -> Camera {
-        Camera {
-            eye: (0.0, 1.0, 2.0).into(),
-            target: (0.0, 0.0, 0.0).into(),
-            up: cgmath::Vector3::unit_y(),
-            aspect: config.width as f32 / config.height as f32,
-            fovy: 45.0,
-            znear: 0.1,
-            zfar: 100.0
-        }
-    }
-
-    fn input(&mut self, event: &WindowEvent) -> bool {
-        self.camera_controller.process_events(event)
-    }
 
     fn resize_window(&mut self, new_size: winit::dpi::PhysicalSize<u32>) -> Option<Texture> {
         let WgpuStructs { config, device, surface, .. } = &mut self.wgpu_structs;
@@ -223,13 +186,6 @@ impl App {
         return depth_texture;
     }
 
-    fn update(&mut self) {
-        let RendererResources { camera_uniform, .. } = &mut self.renderer_resources;
-
-        self.camera_controller.update_camera(&mut self.camera);
-        camera_uniform.update_view_proj(&self.camera);
-    }
-
 }
 
 async fn start() {
@@ -238,10 +194,17 @@ async fn start() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_inner_size(LogicalSize::new(1280, 720))
+        .with_title("Probable-spork")
         .build(&event_loop).unwrap();
 
     {
         let mut app = App::new(window).await;
+        let mut engine = Engine::new(&app.wgpu_structs.config);
+
+        let mut renderer_resources = RendererResources {
+            camera_uniform: CameraUniform::new(),
+            renderables: vec![]
+        };
 
         if let Err(err) = app.init_shaders() {
             warn!("Failed to initialize shaders: {}", err);
@@ -250,7 +213,7 @@ async fn start() {
         let mesh = app.create_mesh();
 
         {
-            let entity = app.scene.add_empty_entity()
+            let entity = engine.scene.add_empty_entity()
                 .add_script(Box::new(TestScript::default()));
 
             match mesh {
@@ -265,10 +228,11 @@ async fn start() {
         }
 
         let mut renderer = Editor::new(&event_loop, &app.wgpu_structs, &app.window, app.wgpu_structs.config.format).await;
+        //let mut renderer = MainRenderer::new(&app.wgpu_structs.device, &app.wgpu_structs.config);
 
-        app.scene.call_user_script_setups();
+        engine.scene.call_user_script_setups();
         event_loop.run(move |event, _, control_flow| match event {
-            Event::WindowEvent { ref event, window_id,} if window_id == app.window.id() => if !app.input(event) {
+            Event::WindowEvent { ref event, window_id,} if window_id == app.window.id() => if !engine.input(event) {
                 
                 let event_response = renderer.handle_event(event);
                 
@@ -301,11 +265,11 @@ async fn start() {
             },
             Event::MainEventsCleared => app.window.request_redraw(),
             Event::RedrawRequested(window_id) if window_id == app.window.id() => {
-                app.scene.call_user_script_updates();
-                app.update();
+                engine.scene.call_user_script_updates();
+                engine.update(&mut renderer_resources);
 
-                app.renderer_resources.renderables = app.scene.get_renderables();
-                match renderer.render(&app.wgpu_structs, &app.window, &app.renderer_resources) {
+                renderer_resources.renderables = engine.scene.get_renderables();
+                match renderer.render(&app.wgpu_structs, &app.window, &renderer_resources) {
                     Ok(_) => {},
                     Err(wgpu::SurfaceError::Lost) => {
                         let depth_texture = app.resize(app.size, Some(app.pixels_per_point));

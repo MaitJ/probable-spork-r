@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::{entities::{Entity, Script}, mesh::TexturedMesh};
+use crate::{entities::{Entity, Script}, renderer::TexturedMesh};
 
 pub struct Scene {
     entity_count: u32,

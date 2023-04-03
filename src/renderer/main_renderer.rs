@@ -1,18 +1,14 @@
-use crate::{renderer::Renderer, WgpuStructs, RendererResources, mesh::Mesh, texture::Texture};
+use crate::{renderer::Renderer, WgpuStructs, RendererResources, renderer::Mesh, texture::Texture};
+
+use super::renderer::RendererLoop;
 
 pub struct MainRenderer {
     depth_texture: Texture,
 }
 
 impl MainRenderer {
-    pub fn new(depth_texture: Texture) -> Self {
-        Self { depth_texture }
-    }
-
-    fn update(&mut self, wgpu_structs: &WgpuStructs, renderer_resources: &RendererResources) {
-        let queue = &wgpu_structs.queue;
-        let RendererResources { camera_uniform, .. } = renderer_resources;
-        renderer_resources.renderables.iter().for_each(|mesh| mesh.update_camera(queue, &[*camera_uniform]));
+    pub fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self {
+        Self { depth_texture: Texture::create_depth_texture(device, config, "Depth texture") }
     }
 }
 
@@ -29,7 +25,8 @@ impl Renderer for MainRenderer {
     }
 
     fn render<'a>(&'a mut self, wgpu_structs: &WgpuStructs, _window: &winit::window::Window, renderer_resources: &RendererResources) -> Result<(), wgpu::SurfaceError> {
-        self.update(wgpu_structs, renderer_resources);
+
+        RendererLoop::update(&wgpu_structs.queue, renderer_resources);
 
         let WgpuStructs { surface, device, queue, .. } = wgpu_structs;
         let output = surface.get_current_texture()?;
@@ -65,7 +62,7 @@ impl Renderer for MainRenderer {
                 })
             });
 
-            renderer_resources.renderables.iter().for_each(|mesh| mesh.render(&mut render_pass));
+            RendererLoop::render(&mut render_pass, renderer_resources);
         }
 
         queue.submit(std::iter::once(encoder.finish()));
