@@ -1,22 +1,18 @@
 use egui::epaint::Primitive;
-use egui::{ClippedPrimitive, Ui, Separator, PaintCallbackInfo, RawInput, FullOutput, TexturesDelta};
+use egui::{ClippedPrimitive, PaintCallbackInfo, TexturesDelta};
 use egui_wgpu::renderer::ScreenDescriptor;
-use egui_winit::EventResponse;
 use log::info;
 use wgpu::{Color, RenderPass};
-use winit::{window::Window, event_loop::EventLoop, event::WindowEvent};
+use winit::window::Window;
 use crate::editor::GamePreviewCallback;
-use crate::entities::CameraUniform;
 
-use crate::{renderer::Mesh, WgpuStructs, renderer::Renderer, texture::Texture, RendererResources};
+use crate::{WgpuStructs, renderer::Renderer, texture::Texture, RendererResources};
 
-use super::RendererLoop;
 pub struct EditorRenderer {
     depth_texture: Texture,
     renderer: egui_wgpu::Renderer,
     screen_descriptor: ScreenDescriptor,
     clipped_primitives: Vec<ClippedPrimitive>,
-    pixels_per_point: f32,
     textures_delta: TexturesDelta,
     pub is_enabled: bool
 }
@@ -32,7 +28,7 @@ impl EditorRenderer {
         let renderer = egui_wgpu::Renderer::new(device, texture_format, Some(crate::Texture::DEPTH_FORMAT), 1);
 
         let screen_descriptor = ScreenDescriptor {
-            pixels_per_point: pixels_per_point,
+            pixels_per_point,
             size_in_pixels: window.inner_size().into()
         };
 
@@ -44,7 +40,6 @@ impl EditorRenderer {
             screen_descriptor,
             clipped_primitives: vec![],
             is_enabled: true,
-            pixels_per_point: pixels_per_point,
             textures_delta: TexturesDelta::default()
         }
     }
@@ -105,7 +100,7 @@ impl EditorRenderer {
                         continue;
                     };
 
-                    let pixels_per_point = self.pixels_per_point;
+                    let pixels_per_point = self.screen_descriptor.pixels_per_point;
 
                     {
 
@@ -141,7 +136,6 @@ impl EditorRenderer {
 
 impl Renderer for EditorRenderer {
     fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>, scale_factor: Option<f32>, depth_texture: Option<Texture>) {
-
         match depth_texture {
             Some(depth_texture) => self.depth_texture = depth_texture,
             None => ()
@@ -149,7 +143,6 @@ impl Renderer for EditorRenderer {
 
         self.screen_descriptor.size_in_pixels = size.into();
 
-        //TODO - Fix this thing so that when switching monitors with different dpi works
         if let Some(pixels_per_point) = scale_factor {
             self.screen_descriptor.pixels_per_point = pixels_per_point;
         }
@@ -164,6 +157,7 @@ impl Renderer for EditorRenderer {
             label: Some("Render Encoder")
         });
 
+        renderer_resources.renderables.iter().for_each(|renderable| renderable.update_instance_data(queue));
         self.update_ui_textures(device, queue, &mut encoder, window);
         self.call_game_preview_update(device, queue, &mut encoder, &self.clipped_primitives, renderer_resources);
         {

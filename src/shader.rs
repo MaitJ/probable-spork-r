@@ -5,6 +5,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::errors::{GeneralError, ErrorIdentificator};
+use crate::renderer::TransformInstance;
 use crate::texture::Texture;
 use crate::vertex::Vertex;
 use bytemuck::{Pod, Zeroable};
@@ -103,6 +104,8 @@ impl ShaderBuilder {
         Ok(self)
     }
 
+    //TODO - Add a function for adding buffers too
+
     pub fn add_uniform<T>(mut self, device: &wgpu::Device, label: &'static str, data: T)
         -> Self
         where T: Pod + Zeroable + Copy + Clone + Debug {
@@ -194,7 +197,7 @@ impl ShaderBuilder {
                     vertex: wgpu::VertexState {
                         module: &shader,
                         entry_point: "vs_main",
-                        buffers: &[Vertex::desc()]
+                        buffers: &[Vertex::desc(), TransformInstance::desc()]
                     },
                     fragment: Some(wgpu::FragmentState {
                         module: &shader,

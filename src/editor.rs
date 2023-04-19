@@ -27,19 +27,24 @@ pub struct Editor{
 }
 
 impl Editor {
-    pub fn new(event_loop: &EventLoop<()>) -> Self {
+    pub fn new(event_loop: &EventLoop<()>, window: &winit::window::Window) -> Self {
         let ctx =  egui::Context::default();
 
-        let scaled_pixels_per_point = ctx.pixels_per_point() * 2.0;
-        info!("Scaled_pixels_per_point: {}", scaled_pixels_per_point);
-        ctx.set_pixels_per_point(scaled_pixels_per_point);
+        let window_size = window.inner_size();
+
+        let mut pixels_per_point = ctx.pixels_per_point();
+        if window_size.width > 1920 && window_size.height > 1080 {
+            pixels_per_point *= 2.0;
+        }
+
+        ctx.set_pixels_per_point(pixels_per_point);
 
         let mut winit_state =  egui_winit::State::new(event_loop);
-        winit_state.set_pixels_per_point(scaled_pixels_per_point);
+        winit_state.set_pixels_per_point(pixels_per_point);
 
         Self {
             ctx,
-            pixels_per_point: scaled_pixels_per_point,
+            pixels_per_point,
             winit_state
         }
     }

@@ -17,6 +17,8 @@ cgmath = "0.18"
 egui = "0.21.0"
 egui-wgpu = {version = "0.21.0", features = ["winit"]}
 egui-winit = "0.21.0"
+probable_spork_ecs = { path = "probable-spork-ecs" }
+script_gen_macro = { path = "script_gen_macro" }
 
 [dependencies.image]
 version = "0.24.5"

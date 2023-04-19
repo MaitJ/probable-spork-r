@@ -1,14 +1,16 @@
-use std::{rc::Rc, sync::Arc};
+use std::sync::Arc;
 
+use cgmath::{Vector3, Quaternion, Rotation3};
+use probable_spork_ecs::component::Component;
 use wgpu::util::DeviceExt;
-use crate::entities::{Camera, CameraUniform, Component};
+use crate::entities::CameraUniform;
 use crate::{vertex::Vertex, shader::{Shader, BIND_GROUP_POSTFIX}, texture::Texture};
+use crate::entities::components::MeshRenderer;
 
-pub trait Mesh {
-    fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>);
-    fn update_camera(&self, queue: &wgpu::Queue, camera_uniform_slice: &[CameraUniform]);
-}
+use super::TransformInstance;
+use super::transform_instance::TransformInstanceRaw;
 
+// TODO - Major store one instance of each mesh and use instances for entites
 pub struct TexturedMesh {
     pub shader: Arc<Shader>,
     pub vertex_buffer: wgpu::Buffer,
@@ -16,28 +18,23 @@ pub struct TexturedMesh {
     pub index_count: u32,
     pub texture: Texture,
     pub texture_bind_group: wgpu::BindGroup,
-    pub camera_bind_group: wgpu::BindGroup
+    pub camera_bind_group: wgpu::BindGroup,
+    pub instance_buffer: wgpu::Buffer,
+    pub instances: Vec<TransformInstance>
 }
 
-impl Component for TexturedMesh {
-    fn setup(&mut self) {
-    }
-    fn update(&mut self) {
-    }
-    fn as_any(self: Rc<Self>) -> Rc<dyn std::any::Any> {
-        self
-    }
-}
+impl Component for TexturedMesh {}
 
-impl Mesh for TexturedMesh {
+impl MeshRenderer for TexturedMesh {
     fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
         render_pass.set_pipeline(&self.shader.render_pipeline);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         render_pass.set_bind_group(0, &self.texture_bind_group, &[]);
         render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
 
-        render_pass.draw_indexed(0..self.index_count, 0, 0..1);
+        render_pass.draw_indexed(0..self.index_count, 0, 0..self.instances.len() as u32);
     }
 
     fn update_camera(&self, queue: &wgpu::Queue, camera_uniform_slice: &[CameraUniform]) {
@@ -69,6 +66,23 @@ impl TexturedMesh {
             }
         );
 
+        let instance = TransformInstance {
+            position: Vector3::new(-0.5, 0.0, 0.0),
+            rotation: Quaternion::from_axis_angle(Vector3::new(0.0, 1.0, 0.0), cgmath::Deg(0.0))
+        };
+
+        let instance_0 = TransformInstance {
+            position: Vector3::new(0.5, 0.0, 0.0),
+            rotation: Quaternion::from_axis_angle(Vector3::new(0.0, 1.0, 0.0), cgmath::Deg(90.0))
+        };
+
+        let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Instance buffer"),
+            size: (20 * std::mem::size_of::<[[f32; 4]; 4]>()) as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false
+        });
+
         let texture_uniform = shader.get_uniform("texture")?;
 
         let texture_bind_group = Self::create_texture_bind_group(device, "test_texture", &texture_uniform.layout, &texture);
@@ -85,8 +99,15 @@ impl TexturedMesh {
             index_count: indices.len() as u32,
             texture,
             texture_bind_group,
-            camera_bind_group
+            camera_bind_group,
+            instance_buffer,
+            instances: vec![instance, instance_0]
         })
+    }
+
+    pub fn update_instance_data(&self, queue: &wgpu:: Queue) {
+        let instance_data: Vec<TransformInstanceRaw> = self.instances.iter().map(TransformInstanceRaw::from).collect();
+        queue.write_buffer(&self.instance_buffer, 0, bytemuck::cast_slice(&instance_data));
     }
 
     fn create_camera_bind_group(device: &wgpu::Device, label: &str, layout: &wgpu::BindGroupLayout, camera_buffer: &wgpu::Buffer) -> wgpu::BindGroup {

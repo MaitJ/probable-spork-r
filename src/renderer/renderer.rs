@@ -2,7 +2,8 @@ use egui_winit::EventResponse;
 use wgpu::RenderPass;
 use winit::{event::WindowEvent, window::Window};
 
-use crate::{WgpuStructs, RendererResources, texture::Texture, renderer::Mesh};
+use crate::{WgpuStructs, RendererResources, texture::Texture};
+use crate::entities::components::MeshRenderer;
 
 pub trait Renderer {
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>, scale_factor: Option<f32>, depth_texture: Option<Texture>);

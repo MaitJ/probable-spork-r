@@ -1,11 +1,12 @@
+use probable_spork_ecs::world::World;
 use winit::event::WindowEvent;
 
-use crate::{entities::{CameraUniform, CameraController, Camera}, world::Scene, RendererResources};
+use crate::{entities::{CameraUniform, CameraController, Camera}, RendererResources, script::Script, scene::Scene, assets::TestScript};
 
 pub struct Engine {
-    pub scene: Scene,
     camera_controller: CameraController,
-    camera: Camera
+    camera: Camera,
+    pub scene: Scene
 }
 
 impl Engine {
@@ -19,7 +20,8 @@ impl Engine {
         Self {
             scene: Scene::new(),
             camera_controller,
-            camera
+            camera,
+
         }
     }
 
@@ -33,6 +35,12 @@ impl Engine {
             znear: 0.1,
             zfar: 100.0
         }
+    }
+
+    pub fn setup(&mut self) {
+        let test_script = TestScript::default();
+        self.scene.initiate_script(test_script);
+        self.scene.script_setup();
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {

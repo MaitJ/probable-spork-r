@@ -1,4 +1,5 @@
-use crate::{renderer::Renderer, WgpuStructs, RendererResources, renderer::Mesh, texture::Texture};
+use crate::{renderer::Renderer, WgpuStructs, RendererResources, texture::Texture};
+use crate::entities::components::MeshRenderer;
 
 use super::renderer::RendererLoop;
 
