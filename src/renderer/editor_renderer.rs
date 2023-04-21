@@ -6,6 +6,7 @@ use wgpu::{Color, RenderPass};
 use winit::window::Window;
 use crate::editor::GamePreviewCallback;
 
+use crate::entities::components::MeshRenderer;
 use crate::{WgpuStructs, renderer::Renderer, texture::Texture, RendererResources};
 
 pub struct EditorRenderer {
@@ -14,7 +15,8 @@ pub struct EditorRenderer {
     screen_descriptor: ScreenDescriptor,
     clipped_primitives: Vec<ClippedPrimitive>,
     textures_delta: TexturesDelta,
-    pub is_enabled: bool
+    pub is_enabled: bool,
+    meshes: Vec<Box<dyn MeshRenderer>>
 }
 
 
@@ -40,7 +42,8 @@ impl EditorRenderer {
             screen_descriptor,
             clipped_primitives: vec![],
             is_enabled: true,
-            textures_delta: TexturesDelta::default()
+            textures_delta: TexturesDelta::default(),
+            meshes: vec![]
         }
     }
     
@@ -78,13 +81,15 @@ impl EditorRenderer {
                         device,
                         queue,
                         encoder,
-                        renderer_resources
+                        renderer_resources,
+                        &self.meshes
                     );
                 },
                 _ => ()
             }
         }
     }
+
 
     fn call_game_preview_render<'a>(&'a self, render_pass: &mut RenderPass<'a>, clipped_primitive: &Vec<ClippedPrimitive>, 
         renderer_resources: &'a RendererResources) {
@@ -121,11 +126,13 @@ impl EditorRenderer {
                         PaintCallbackInfo {
                             viewport: callback.rect,
                             clip_rect: *clip_rect,
+
                             pixels_per_point,
                             screen_size_px: self.screen_descriptor.size_in_pixels,
                         },
                         render_pass,
-                        renderer_resources
+                        renderer_resources,
+                        &self.meshes
                     );
                 },
                 _ => ()
@@ -148,7 +155,8 @@ impl Renderer for EditorRenderer {
         }
     }
 
-    fn render<'a>(&'a mut self, wgpu_structs: &WgpuStructs, window: &Window, renderer_resources: &RendererResources) -> Result<(), wgpu::SurfaceError> {
+    fn render<'a>(&'a mut self, wgpu_structs: &WgpuStructs, window: &Window, renderer_resources: &'a mut RendererResources) -> Result<(), wgpu::SurfaceError> {
+
         let WgpuStructs { surface, device, queue, .. } = wgpu_structs;
         let output = surface.get_current_texture()?;
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -157,7 +165,8 @@ impl Renderer for EditorRenderer {
             label: Some("Render Encoder")
         });
 
-        renderer_resources.renderables.iter().for_each(|renderable| renderable.update_instance_data(queue));
+        //renderer_resources.renderables.iter().for_each(|renderable| renderable.update_instance_data(queue));
+
         self.update_ui_textures(device, queue, &mut encoder, window);
         self.call_game_preview_update(device, queue, &mut encoder, &self.clipped_primitives, renderer_resources);
         {
@@ -194,5 +203,8 @@ impl Renderer for EditorRenderer {
         Ok(())
     }
 
+    fn add_mesh(&mut self, mesh: impl MeshRenderer + 'static) {
+        self.meshes.push(Box::new(mesh));
+    }
 
 }

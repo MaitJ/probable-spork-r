@@ -58,6 +58,7 @@ pub fn derive_macro(input: TokenStream) -> TokenStream {
 
             quote! {
                 if let Some(c) = world.get_entity_component::<#ty>(&self.entity) {
+                    // TODO - Please replace this with a thing that checks if an updated is needed
                     self.#variable = c.clone()
                 }
             }
@@ -72,6 +73,7 @@ pub fn derive_macro(input: TokenStream) -> TokenStream {
 
             quote! {
                 if let Some(c) = world.get_entity_component_mut::<#ty>(&self.entity) {
+                    // TODO - Please replace this with a thing that checks if an updated is needed
                     *c = self.#variable.clone()
                 }
             }

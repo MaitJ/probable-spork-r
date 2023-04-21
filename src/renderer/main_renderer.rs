@@ -5,11 +5,15 @@ use super::renderer::RendererLoop;
 
 pub struct MainRenderer {
     depth_texture: Texture,
+    meshes: Vec<Box<dyn MeshRenderer>>
 }
 
 impl MainRenderer {
     pub fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self {
-        Self { depth_texture: Texture::create_depth_texture(device, config, "Depth texture") }
+        Self {
+            depth_texture: Texture::create_depth_texture(device, config, "Depth texture"),
+            meshes: vec![]
+        }
     }
 }
 
@@ -21,9 +25,8 @@ impl Renderer for MainRenderer {
         }
     }
 
-    fn render<'a>(&'a mut self, wgpu_structs: &WgpuStructs, _window: &winit::window::Window, renderer_resources: &RendererResources) -> Result<(), wgpu::SurfaceError> {
-
-        RendererLoop::update(&wgpu_structs.queue, renderer_resources);
+    fn render<'a>(&'a mut self, wgpu_structs: &WgpuStructs, _window: &winit::window::Window, renderer_resources: &mut RendererResources) -> Result<(), wgpu::SurfaceError> {
+        RendererLoop::update(&wgpu_structs.queue, renderer_resources, &self.meshes);
 
         let WgpuStructs { surface, device, queue, .. } = wgpu_structs;
         let output = surface.get_current_texture()?;
@@ -59,11 +62,15 @@ impl Renderer for MainRenderer {
                 })
             });
 
-            RendererLoop::render(&mut render_pass, renderer_resources);
+            RendererLoop::render(&mut render_pass, renderer_resources, &self.meshes);
         }
 
         queue.submit(std::iter::once(encoder.finish()));
         output.present();
         Ok(())
+    }
+
+    fn add_mesh(&mut self, mesh: impl MeshRenderer + 'static) {
+        self.meshes.push(Box::new(mesh));
     }
 }

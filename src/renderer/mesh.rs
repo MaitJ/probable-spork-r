@@ -23,8 +23,6 @@ pub struct TexturedMesh {
     pub instances: Vec<TransformInstance>
 }
 
-impl Component for TexturedMesh {}
-
 impl MeshRenderer for TexturedMesh {
     fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
         render_pass.set_pipeline(&self.shader.render_pipeline);
@@ -44,6 +42,11 @@ impl MeshRenderer for TexturedMesh {
             Some(buffer) => queue.write_buffer(buffer, 0, bytemuck::cast_slice(camera_uniform_slice)),
             None => println!("Couldn't find camera buffer")
         }
+    }
+
+    fn update_instance_data(&self, queue: &wgpu::Queue) {
+        let instance_data: Vec<TransformInstanceRaw> = self.instances.iter().map(TransformInstanceRaw::from).collect();
+        queue.write_buffer(&self.instance_buffer, 0, bytemuck::cast_slice(&instance_data));
     }
 }
 
@@ -105,10 +108,6 @@ impl TexturedMesh {
         })
     }
 
-    pub fn update_instance_data(&self, queue: &wgpu:: Queue) {
-        let instance_data: Vec<TransformInstanceRaw> = self.instances.iter().map(TransformInstanceRaw::from).collect();
-        queue.write_buffer(&self.instance_buffer, 0, bytemuck::cast_slice(&instance_data));
-    }
 
     fn create_camera_bind_group(device: &wgpu::Device, label: &str, layout: &wgpu::BindGroupLayout, camera_buffer: &wgpu::Buffer) -> wgpu::BindGroup {
         device.create_bind_group(&wgpu::BindGroupDescriptor {

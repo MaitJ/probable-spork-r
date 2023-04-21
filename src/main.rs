@@ -15,7 +15,7 @@ use std::sync::Arc;
 use log::{info, warn};
 use probable_spork_ecs::component::Component;
 use renderer::TexturedMesh;
-use entities::CameraUniform;
+use entities::{CameraUniform, components::MeshRenderer};
 use renderer::{Renderer};
 use shader::{Shader, ShaderBuilder};
 use texture::Texture;
@@ -35,9 +35,8 @@ pub struct WgpuStructs {
     config: wgpu::SurfaceConfiguration
 }
 
-pub struct RendererResources<'a> {
+pub struct RendererResources {
    camera_uniform: CameraUniform,
-   renderables: Vec<&'a TexturedMesh>
 }
 
 struct App {
@@ -221,9 +220,11 @@ async fn start() {
         let pixels_per_point = editor.pixels_per_point;
         let mut renderer = EditorRenderer::new(&app.wgpu_structs, &app.window, app.wgpu_structs.config.format, pixels_per_point).await;
         //let mut renderer = MainRenderer::new(&app.wgpu_structs.device, &app.wgpu_structs.config);
+        if let Some(mesh) = mesh {
+            renderer.add_mesh(mesh);
+        }
 
         engine.setup();
-        engine.scene.script_setup();
         event_loop.run(move |event, _, control_flow| match event {
             Event::WindowEvent { ref event, window_id,} if window_id == app.window.id() => if !engine.input(event) {
 
@@ -261,7 +262,6 @@ async fn start() {
             Event::RedrawRequested(window_id) if window_id == app.window.id() => {
                 let mut renderer_resources = RendererResources {
                     camera_uniform: CameraUniform::new(),
-                    renderables: vec![]
                 };
 
                 engine.scene.script_update();
@@ -269,9 +269,8 @@ async fn start() {
 
                 let editor_output = editor.draw(&app.window, &renderer_resources);
                 renderer.update_ui(editor_output.0, editor_output.1);
-                //renderer_resources.renderables = engine.scene.get_renderables();
-                info!("Renderables: {}", renderer_resources.renderables.len());
-                match renderer.render(&app.wgpu_structs, &app.window, &renderer_resources) {
+
+                match renderer.render(&app.wgpu_structs, &app.window, &mut renderer_resources) {
                     Ok(_) => {},
                     Err(wgpu::SurfaceError::Lost) => {
                         let depth_texture = app.resize_window(app.size);

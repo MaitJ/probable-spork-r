@@ -3,17 +3,18 @@ use egui_winit::EventResponse;
 use log::info;
 use winit::{event_loop::EventLoop, event::WindowEvent};
 
-use crate::{RendererResources, renderer::RendererLoop};
+use crate::{RendererResources, renderer::RendererLoop, entities::components::MeshRenderer};
 
 type UpdateCallback = dyn Fn(
         &wgpu::Device,
         &wgpu::Queue,
         &mut wgpu::CommandEncoder,
-        &RendererResources
+        &RendererResources,
+        &Vec<Box<dyn MeshRenderer>>
     ) + Send + Sync;
 
 type PaintCallback =
-    dyn for<'a, 'b> Fn(PaintCallbackInfo, &'a mut wgpu::RenderPass<'b>, &'b RendererResources) + Send + Sync;
+    dyn for<'a, 'b> Fn(PaintCallbackInfo, &'a mut wgpu::RenderPass<'b>, &'b RendererResources, &'b Vec<Box<dyn MeshRenderer>>) + Send + Sync;
 
 pub struct GamePreviewCallback {
     pub update: Box<UpdateCallback>,
@@ -58,8 +59,8 @@ impl Editor {
         let (rect, _response) = ui.allocate_at_least(available_size, egui::Sense::drag());
 
         let cb = GamePreviewCallback {
-            update: Box::new(|_device, queue, _encoder, renderer_resources| RendererLoop::update(queue, renderer_resources)),
-            render: Box::new(|_info, rpass, renderer_resources| RendererLoop::render(rpass, renderer_resources))
+            update: Box::new(|_device, queue, _encoder, renderer_resources, meshes| RendererLoop::update(queue, renderer_resources, meshes)),
+            render: Box::new(|_info, rpass, renderer_resources, meshes| RendererLoop::render(rpass, renderer_resources, meshes))
         };
 
         let callback = egui::PaintCallback {
@@ -76,13 +77,6 @@ impl Editor {
             egui::SidePanel::left("Scene panel").show(ctx, |ui| {
                 ui.heading("Scene");
                 ui.add(Separator::default().horizontal());
-
-                renderer_resources.renderables
-                    .iter()
-                    .enumerate()
-                    .for_each(|(i, _mesh)| {
-                        ui.label(format!("Mesh {}", i));
-                    })
             });
             egui::SidePanel::right("Right panel").show(ctx, |ui| {
                 ui.heading("Properties");
