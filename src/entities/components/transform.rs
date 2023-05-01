@@ -1,4 +1,4 @@
-use probable_spork_ecs::component::Component;
+use probable_spork_ecs::{component::{Component, ComponentStorage}, world::GameWorld};
 
 #[derive(Default, Debug, Clone)]
 pub struct Transform {
@@ -7,10 +7,9 @@ pub struct Transform {
     pub z: f32
 }
 
-#[derive(Debug, Clone)]
-pub struct Mesh {
-    label: &'static str
+impl Component for Transform {
+    fn setup(&self) {
+    }
+    fn update(&mut self, world: &ComponentStorage) {
+    }
 }
-
-impl Component for Mesh {}
-impl Component for Transform {}

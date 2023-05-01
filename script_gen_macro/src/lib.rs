@@ -82,14 +82,14 @@ pub fn derive_macro(input: TokenStream) -> TokenStream {
 
     let output = quote! {
         impl ScriptComponentUpdater for #struct_name {
-            fn pre_setup(&mut self, entity: probable_spork_ecs::component::Entity, world: &mut probable_spork_ecs::world::World) {
+            fn pre_setup(&mut self, entity: probable_spork_ecs::component::Entity, world: &probable_spork_ecs::component::ComponentStorage) {
                 #(#register_calls)*
             }
 
-            fn pre_user_update(&mut self, world: &probable_spork_ecs::world::World) {
+            fn pre_user_update(&mut self, world: &probable_spork_ecs::component::ComponentStorage) {
                 #(#pre_user_update_calls)*
             }
-            fn post_user_update(&mut self, world: &mut probable_spork_ecs::world::World) {
+            fn post_user_update(&mut self, world: &probable_spork_ecs::component::ComponentStorage) {
                 #(#post_user_update_calls)*
             }
         }

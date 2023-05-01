@@ -26,7 +26,7 @@ impl TestScript {
             transform: Transform::default(),
             mesh: MeshInstance {
                 mesh_index: 0,
-                transform: Transform::default()
+                mesh_instance_index: 0
             }
         }
     }

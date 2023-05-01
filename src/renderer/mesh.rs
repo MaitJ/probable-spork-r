@@ -12,6 +12,7 @@ use super::transform_instance::TransformInstanceRaw;
 
 // TODO - Major store one instance of each mesh and use instances for entites
 pub struct TexturedMesh {
+    pub label: String,
     pub shader: Arc<Shader>,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
@@ -51,7 +52,7 @@ impl MeshRenderer for TexturedMesh {
 }
 
 impl TexturedMesh {
-    pub fn from(device: &wgpu::Device, vertices: &[Vertex], indices: &[u16], shader: Arc<Shader>, 
+    pub fn from(label: String, device: &wgpu::Device, vertices: &[Vertex], indices: &[u16], shader: Arc<Shader>,
         texture: Texture) -> Result<TexturedMesh, anyhow::Error> {
         let vertex_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
@@ -96,6 +97,7 @@ impl TexturedMesh {
         let camera_bind_group = Self::create_camera_bind_group(device, "camera", &camera_uniform.layout, &camera_buffer);
 
         Ok(Self {
+            label,
             shader,
             vertex_buffer,
             index_buffer,

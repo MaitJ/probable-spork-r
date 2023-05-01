@@ -132,7 +132,7 @@ impl App {
 
         match default_shader {
             Some(shader) => {
-                let textured_mesh = TexturedMesh::from(device, VERTICES, INDICES, shader, diffuse_texture);
+                let textured_mesh = TexturedMesh::from(String::from("happy-tree"), device, VERTICES, INDICES, shader, diffuse_texture);
 
                 match textured_mesh {
                     Ok(mesh) => Some(mesh),

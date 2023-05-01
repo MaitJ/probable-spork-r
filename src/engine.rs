@@ -1,4 +1,3 @@
-use probable_spork_ecs::world::World;
 use winit::event::WindowEvent;
 
 use crate::{entities::{CameraUniform, CameraController, Camera}, RendererResources, script::Script, scene::Scene, assets::TestScript};
