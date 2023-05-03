@@ -7,7 +7,7 @@ pub struct MeshInstance {
 }
 
 impl Component for MeshInstance {
-    fn setup(&self) {
+    fn setup(&mut self) {
     }
     fn update(&mut self, world: &ComponentStorage) {
     }

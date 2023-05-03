@@ -58,7 +58,7 @@ pub fn derive_macro(input: TokenStream) -> TokenStream {
 
             quote! {
                 if let Some(c) = world.get_entity_component::<#ty>(&self.entity) {
-                    // TODO - Please replace this with a thing that checks if an updated is needed
+                    // todo - please replace this with a thing that checks if an updated is needed
                     self.#variable = c.clone()
                 }
             }
@@ -72,7 +72,7 @@ pub fn derive_macro(input: TokenStream) -> TokenStream {
             let ty = cl_field.ty;
 
             quote! {
-                if let Some(c) = world.get_entity_component_mut::<#ty>(&self.entity) {
+                if let Some(mut c) = world.get_entity_component_mut::<#ty>(&self.entity) {
                     // TODO - Please replace this with a thing that checks if an updated is needed
                     *c = self.#variable.clone()
                 }
@@ -82,7 +82,7 @@ pub fn derive_macro(input: TokenStream) -> TokenStream {
 
     let output = quote! {
         impl ScriptComponentUpdater for #struct_name {
-            fn pre_setup(&mut self, entity: probable_spork_ecs::component::Entity, world: &probable_spork_ecs::component::ComponentStorage) {
+            fn pre_setup(&mut self, entity: probable_spork_ecs::component::Entity, world: &mut probable_spork_ecs::component::ComponentStorage) {
                 #(#register_calls)*
             }
 

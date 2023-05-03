@@ -264,7 +264,6 @@ async fn start() {
                     camera_uniform: CameraUniform::new(),
                 };
 
-                engine.scene.script_update();
                 engine.update(&mut renderer_resources);
 
                 let editor_output = editor.draw(&app.window, &renderer_resources);

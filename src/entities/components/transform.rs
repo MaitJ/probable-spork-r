@@ -8,7 +8,7 @@ pub struct Transform {
 }
 
 impl Component for Transform {
-    fn setup(&self) {
+    fn setup(&mut self) {
     }
     fn update(&mut self, world: &ComponentStorage) {
     }

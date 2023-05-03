@@ -1,5 +1,5 @@
 use log::info;
-use probable_spork_ecs::{world::GameWorld, component::ComponentStorage};
+use probable_spork_ecs::{world::GameWorld, component::{ComponentStorage, Entity}};
 
 use crate::{script::Script, entities::components::Transform};
 
@@ -26,27 +26,13 @@ impl Scene {
     }
 
     pub fn initiate_script<T: Script + 'static>(&mut self, script: T) {
-        let mut boxed_script = Box::new(script);
+        let mut boxed_script: Box<dyn Script> = Box::new(script);
         let entity = self.component_storage.create_entity();
-        boxed_script.pre_setup(entity, &self.component_storage);
-        self.user_scripts.push(boxed_script);
-    }
+        info!("entity: {}", entity.0);
+        boxed_script.pre_setup(entity.clone(), &mut self.component_storage);
+        boxed_script.post_user_update(&self.component_storage);
+        self.component_storage.register_component(&entity, boxed_script);
 
-    pub fn script_setup(&mut self) {
-        self.user_scripts
-            .iter_mut()
-            .for_each(|script| {
-                script.setup();
-            });
-    }
-
-    pub fn script_update(&mut self) {
-        self.user_scripts
-            .iter_mut()
-            .for_each(|script| {
-                script.pre_user_update(&self.component_storage);
-                script.update();
-                script.post_user_update(&self.component_storage)
-            })
+        //self.user_scripts.push(boxed_script);
     }
 }
