@@ -62,8 +62,8 @@ impl Script for TestScript {
     }
 
     fn script_update(&mut self) {
-        let Transform {mut x, y, ..} = &self.transform;
-        x += 0.01;
+        self.transform.x += 0.01;
+        let Transform {x, y, ..} = &self.transform;
         info!("position ({}, {})", x, y);
     }
 }

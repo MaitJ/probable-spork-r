@@ -1,6 +1,6 @@
 use probable_spork_ecs::{component::{Component, ComponentStorage}, world::GameWorld};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MeshInstance {
     pub mesh_index: usize,
     pub mesh_instance_index: usize

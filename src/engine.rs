@@ -1,8 +1,6 @@
-use log::{log, info};
-use probable_spork_ecs::component::Entity;
 use winit::event::WindowEvent;
 
-use crate::{entities::{CameraUniform, CameraController, Camera, components::Transform}, RendererResources, script::Script, scene::Scene, assets::TestScript};
+use crate::{entities::{CameraUniform, CameraController, Camera}, RendererResources, scene::Scene, assets::TestScript};
 
 pub struct Engine {
     camera_controller: CameraController,
@@ -44,10 +42,6 @@ impl Engine {
 
         self.scene.setup_components();
         self.scene.update_components();
-
-        if let Some(t) = self.scene.component_storage.get_entity_component::<Transform>(&Entity(0)) {
-            info!("Actually found transform ({}, {}, {})", t.x, t.y, t.z);
-        }
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {

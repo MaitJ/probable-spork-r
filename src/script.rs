@@ -16,7 +16,6 @@ pub trait Script: ScriptComponentUpdater {
 impl Component for Box<dyn Script> {
     //TODO - Maybe I should call pre_setup here aswell
     fn setup(&mut self) {
-        info!("called script component update");
         self.script_setup();
     }
     fn update(&mut self, world: &ComponentStorage) {
