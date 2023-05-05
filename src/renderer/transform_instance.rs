@@ -1,4 +1,4 @@
-use cgmath::{Vector3, Quaternion, Euler, Transform};
+use cgmath::{Vector3, Quaternion};
 use wgpu::VertexAttribute;
 
 pub struct TransformInstance {

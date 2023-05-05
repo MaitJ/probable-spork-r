@@ -1,4 +1,4 @@
-use probable_spork_ecs::{component::{Component, ComponentStorage}, world::GameWorld};
+use probable_spork_ecs::{component::{Component, ComponentStorage}};
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct Transform {
@@ -10,6 +10,6 @@ pub struct Transform {
 impl Component for Transform {
     fn setup(&mut self) {
     }
-    fn update(&mut self, world: &ComponentStorage) {
+    fn update(&mut self, _world: &ComponentStorage) {
     }
 }

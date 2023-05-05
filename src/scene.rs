@@ -1,7 +1,7 @@
 use log::info;
-use probable_spork_ecs::{world::GameWorld, component::{ComponentStorage, Entity}};
+use probable_spork_ecs::{component::{ComponentStorage}};
 
-use crate::{script::Script, entities::components::Transform};
+use crate::{script::Script};
 
 pub struct Scene {
     pub component_storage: ComponentStorage,

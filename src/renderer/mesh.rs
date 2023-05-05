@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cgmath::{Vector3, Quaternion, Rotation3};
-use probable_spork_ecs::component::Component;
+
 use wgpu::util::DeviceExt;
 use crate::entities::CameraUniform;
 use crate::{vertex::Vertex, shader::{Shader, BIND_GROUP_POSTFIX}, texture::Texture};

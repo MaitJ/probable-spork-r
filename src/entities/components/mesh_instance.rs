@@ -1,4 +1,4 @@
-use probable_spork_ecs::{component::{Component, ComponentStorage}, world::GameWorld};
+use probable_spork_ecs::{component::{Component, ComponentStorage}};
 
 #[derive(Clone, PartialEq)]
 pub struct MeshInstance {
@@ -9,6 +9,6 @@ pub struct MeshInstance {
 impl Component for MeshInstance {
     fn setup(&mut self) {
     }
-    fn update(&mut self, world: &ComponentStorage) {
+    fn update(&mut self, _world: &ComponentStorage) {
     }
 }

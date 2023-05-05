@@ -53,7 +53,7 @@ impl EditorRenderer {
     }
 
     pub fn update_ui_textures(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, 
-            window: &winit::window::Window) {
+            _window: &winit::window::Window) {
 
 
         for (id, image_delta) in self.textures_delta.set.iter() {

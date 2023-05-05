@@ -1,7 +1,7 @@
-use egui_winit::EventResponse;
-use log::info;
+
+
 use wgpu::RenderPass;
-use winit::{event::WindowEvent, window::Window};
+use winit::{window::Window};
 
 use crate::{WgpuStructs, RendererResources, texture::Texture};
 use crate::entities::components::MeshRenderer;

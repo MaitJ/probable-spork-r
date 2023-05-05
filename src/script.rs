@@ -1,5 +1,5 @@
-use log::info;
-use probable_spork_ecs::{component::{Entity, Component, ComponentStorage}, world::{GameWorld}};
+
+use probable_spork_ecs::{component::{Entity, Component, ComponentStorage}};
 
 pub trait ScriptComponentUpdater {
     fn pre_setup(&mut self, entity: Entity, world: &mut ComponentStorage);
@@ -13,10 +13,10 @@ pub trait Script: ScriptComponentUpdater{
 }
 
 impl PartialEq for Box<dyn Script> {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, _other: &Self) -> bool {
         false
     }
-    fn ne(&self, other: &Self) -> bool {
+    fn ne(&self, _other: &Self) -> bool {
         false
     }
 }

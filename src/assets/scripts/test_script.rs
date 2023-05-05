@@ -1,4 +1,4 @@
-use cgmath::Vector3;
+
 use log::info;
 use probable_spork_ecs::component::Entity;
 use script_gen_macro::ScriptComponentUpdater;

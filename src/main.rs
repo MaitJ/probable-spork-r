@@ -24,7 +24,7 @@ use winit::{event_loop::{EventLoop, ControlFlow}, window::WindowBuilder, event::
 use winit::window::Window;
 use test_tree::{VERTICES, INDICES};
 
-use crate::{assets::TestScript, editor::Editor, renderer::MainRenderer};
+use crate::{editor::Editor};
 use crate::engine::Engine;
 use crate::renderer::EditorRenderer;
 

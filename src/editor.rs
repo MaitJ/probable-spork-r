@@ -1,4 +1,4 @@
-use egui::{RawInput, FullOutput, Separator, PaintCallbackInfo, Ui, ClippedPrimitive, TexturesDelta};
+use egui::{Separator, PaintCallbackInfo, Ui, ClippedPrimitive, TexturesDelta};
 use egui_winit::EventResponse;
 use log::info;
 use winit::{event_loop::EventLoop, event::WindowEvent};
@@ -71,7 +71,7 @@ impl Editor {
         ui.painter().add(callback);
     }
 
-    pub fn draw(&mut self, window: &winit::window::Window, renderer_resources: &RendererResources) -> (TexturesDelta, Vec<ClippedPrimitive>) {
+    pub fn draw(&mut self, window: &winit::window::Window, _renderer_resources: &RendererResources) -> (TexturesDelta, Vec<ClippedPrimitive>) {
         let raw_input = self.winit_state.take_egui_input(window);
         let full_output = self.ctx.run(raw_input, |ctx| {
             egui::SidePanel::left("Scene panel").show(ctx, |ui| {
