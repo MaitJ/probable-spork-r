@@ -1,6 +1,6 @@
 use probable_spork_ecs::{component::{Component, ComponentStorage}, world::GameWorld};
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct Transform {
     pub x: f32,
     pub y: f32,

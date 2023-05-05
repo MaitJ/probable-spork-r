@@ -19,29 +19,6 @@ pub struct TestScript {
     mesh: MeshInstance
 }
 
-//impl ScriptComponentUpdater for TestScript {
-//    fn post_user_update(&mut self, world: &probable_spork_ecs::component::ComponentStorage) {
-//        if let Some(mut c) = world.get_entity_component_mut::<Transform>(&self.entity) {
-//            // TODO - Please replace this with a thing that checks if an updated is needed
-//            *c = self.transform.clone()
-//        }
-//    }
-//    fn pre_setup(&mut self, entity: Entity, world: &mut probable_spork_ecs::component::ComponentStorage) {
-//        world.register_component::<Transform>(&self.entity, self.transform.clone());
-//        world.register_component::<MeshInstance>(&self.entity, self.mesh.clone());
-//    }
-//    fn pre_user_update(&mut self, world: &probable_spork_ecs::component::ComponentStorage) {
-//        if let Some(c) = world.get_entity_component::<Transform>(&self.entity) {
-//            // todo - please replace this with a thing that checks if an updated is needed
-//            self.transform = c.clone()
-//        }
-//        if let Some(c) = world.get_entity_component::<MeshInstance>(&self.entity) {
-//            // todo - please replace this with a thing that checks if an updated is needed
-//            self.mesh = c.clone()
-//        }
-//    }
-//}
-
 impl TestScript {
     pub fn default() -> Self {
         Self {

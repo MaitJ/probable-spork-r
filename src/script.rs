@@ -7,11 +7,19 @@ pub trait ScriptComponentUpdater {
     fn post_user_update(&mut self, world: &ComponentStorage);
 }
 
-pub trait Script: ScriptComponentUpdater {
+pub trait Script: ScriptComponentUpdater{
     fn script_setup(&mut self);
     fn script_update(&mut self);
 }
 
+impl PartialEq for Box<dyn Script> {
+    fn eq(&self, other: &Self) -> bool {
+        false
+    }
+    fn ne(&self, other: &Self) -> bool {
+        false
+    }
+}
 
 impl Component for Box<dyn Script> {
     //TODO - Maybe I should call pre_setup here aswell
