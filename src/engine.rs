@@ -1,6 +1,7 @@
+use log::{warn, info};
 use winit::event::WindowEvent;
 
-use crate::{entities::{CameraUniform, CameraController, Camera, components::{MeshInstance, MeshRenderer}}, RendererResources, scene::Scene, assets::TestScript};
+use crate::{entities::{CameraUniform, CameraController, Camera, components::{MeshInstance, MeshRenderer, Transform}}, RendererResources, scene::Scene, assets::TestScript, renderer::Renderer};
 
 pub struct Engine {
     camera_controller: CameraController,
@@ -36,14 +37,47 @@ impl Engine {
         }
     }
 
-    pub fn setup(&mut self) {
+    pub fn setup(&mut self, renderer: &mut impl Renderer) {
         let test_script = TestScript::default();
-        let entity = self.scene.create_entity();
+        let mut entity = self.scene.create_entity();
         self.scene.add_script_to_entity(&entity, test_script);
+
+
+        let mesh_index = 0;
+        let mesh_instance_index = renderer.get_mesh_manager_mut().create_mesh_instance(mesh_index);
+
+        match mesh_instance_index {
+            Some(mesh_instance_index) => {
+                let mesh_instance = MeshInstance {
+                    mesh_index,
+                    mesh_instance_index,
+                    local_transform: Transform::default()
+                };
+
+                self.scene.update_entity_component(&entity, mesh_instance);
+            },
+            None => warn!("Couldnt find mesh/mesh_instance")
+        }
+
+
+        entity = self.scene.create_entity();
+
+        let mesh_instance_index = renderer.get_mesh_manager_mut().create_mesh_instance(mesh_index);
+
+        if let Some(mesh_instance_index) = mesh_instance_index {
+            let mut transform = Transform::default();
+            transform.position.x = -4.0;
+
+            let mesh_instance = MeshInstance {
+                mesh_index,
+                mesh_instance_index,
+                local_transform: transform
+            };
+            self.scene.add_component_to_entity(&entity, mesh_instance);
+        }
 
         self.scene.setup_components();
         self.scene.update_components();
-
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {

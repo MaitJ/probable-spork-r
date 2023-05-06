@@ -10,7 +10,6 @@ use crate::entities::components::{MeshRenderer, MeshRendererError};
 use super::TransformInstance;
 use super::transform_instance::TransformInstanceRaw;
 
-// TODO - Major store one instance of each mesh and use instances for entites
 pub struct TexturedMesh {
     pub label: String,
     pub shader: Arc<Shader>,
@@ -25,6 +24,13 @@ pub struct TexturedMesh {
 }
 
 impl MeshRenderer for TexturedMesh {
+    fn create_instance(&mut self) -> usize {
+        let instance_index = self.instances.len();
+        self.instances.push(TransformInstance::default());
+
+        instance_index
+    }
+
     fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
         render_pass.set_pipeline(&self.shader.render_pipeline);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
@@ -59,6 +65,7 @@ impl MeshRenderer for TexturedMesh {
         let instance_data: Vec<TransformInstanceRaw> = self.instances.iter().map(TransformInstanceRaw::from).collect();
         queue.write_buffer(&self.instance_buffer, 0, bytemuck::cast_slice(&instance_data));
     }
+
 }
 
 impl TexturedMesh {
@@ -79,16 +86,6 @@ impl TexturedMesh {
                 usage: wgpu::BufferUsages::INDEX
             }
         );
-
-        let instance = TransformInstance {
-            position: Vector3::new(-0.5, 0.0, 0.0),
-            rotation: Quaternion::from_axis_angle(Vector3::new(0.0, 1.0, 0.0), cgmath::Deg(0.0))
-        };
-
-        let instance_0 = TransformInstance {
-            position: Vector3::new(0.5, 0.0, 0.0),
-            rotation: Quaternion::from_axis_angle(Vector3::new(0.0, 1.0, 0.0), cgmath::Deg(90.0))
-        };
 
         let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Instance buffer"),
@@ -116,7 +113,7 @@ impl TexturedMesh {
             texture_bind_group,
             camera_bind_group,
             instance_buffer,
-            instances: vec![instance, instance_0]
+            instances: vec![]
         })
     }
 

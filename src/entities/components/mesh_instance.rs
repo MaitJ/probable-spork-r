@@ -5,7 +5,7 @@ use crate::renderer::TransformInstance;
 
 use super::{Transform, MeshRenderer};
 
-#[derive(Clone, PartialEq, Default)]
+#[derive(Clone, PartialEq, Default, Debug)]
 pub struct MeshInstance {
     pub mesh_index: usize,
     pub mesh_instance_index: usize,
@@ -13,7 +13,7 @@ pub struct MeshInstance {
 }
 
 impl Component for MeshInstance {
-    fn setup(&mut self) {
+    fn setup(&mut self, _world: &ComponentStorage) {
     }
     fn update(&mut self, _world: &ComponentStorage) {
     }

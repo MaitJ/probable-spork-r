@@ -224,7 +224,7 @@ async fn start() {
             renderer.add_mesh(mesh);
         }
 
-        engine.setup();
+        engine.setup(&mut renderer);
         event_loop.run(move |event, _, control_flow| match event {
             Event::WindowEvent { ref event, window_id,} if window_id == app.window.id() => if !engine.input(event) {
 

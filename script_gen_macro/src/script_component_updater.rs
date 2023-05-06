@@ -58,7 +58,6 @@ impl ScriptComponentUpdaterMacro {
         let pre_user_update_calls = ScriptComponentUpdaterMacro::script_fn_closure(&filtered_fields, |ty, variable| {
             quote! {
                 if let Some(c) = world.get_entity_component::<#ty>(&self.entity) {
-                    // todo - please replace this with a thing that checks if an updated is needed
                     if self.#variable != *c {
                         self.#variable = c.clone()
                     }
@@ -69,7 +68,6 @@ impl ScriptComponentUpdaterMacro {
         let post_user_update_calls = ScriptComponentUpdaterMacro::script_fn_closure(&filtered_fields, |ty, variable| {
             quote! {
                 if let Some(mut c) = world.get_entity_component_mut::<#ty>(&self.entity) {
-                    // TODO - Please replace this with a thing that checks if an updated is needed
                     if *c != self.#variable {
                         *c = self.#variable.clone();
                     }

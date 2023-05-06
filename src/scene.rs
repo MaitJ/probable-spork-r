@@ -1,7 +1,7 @@
 use std::cell::{RefCell, Ref};
 
 use log::{info, warn};
-use probable_spork_ecs::{component::{ComponentStorage, Entity, Component}};
+use probable_spork_ecs::{component::{ComponentStorage, Entity, Component, self}};
 
 use crate::{script::Script, entities::components::MeshInstance};
 
@@ -31,6 +31,17 @@ impl Scene {
 
     pub fn add_component_to_entity<T: Component + 'static>(&mut self, entity: &Entity, component: T) {
         self.component_storage.register_component(&entity, component);
+    }
+
+    pub fn update_entity_component<T>(&mut self, entity: &Entity, component: T)
+        where T: Component + Clone + 'static
+    {
+        match self.component_storage.get_entity_component_mut::<T>(entity) {
+            Some(mut c) => {
+                *c = component.clone();
+            },
+            None => warn!("Couldn't find {} for entity: {}", std::any::type_name::<T>(), entity.0)
+        }
     }
 
     pub fn get_mesh_instances(&self) -> Vec<Ref<MeshInstance>> {

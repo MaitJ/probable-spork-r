@@ -22,9 +22,9 @@ impl PartialEq for Box<dyn Script> {
 }
 
 impl Component for Box<dyn Script> {
-    //TODO - Maybe I should call pre_setup here aswell
-    fn setup(&mut self) {
+    fn setup(&mut self, world: &ComponentStorage) {
         self.script_setup();
+        self.post_user_update(world);
     }
     fn update(&mut self, world: &ComponentStorage) {
         self.pre_user_update(world);

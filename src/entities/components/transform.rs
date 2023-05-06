@@ -28,7 +28,7 @@ impl From<&Transform> for TransformInstance {
 }
 
 impl Component for Transform {
-    fn setup(&mut self) {
+    fn setup(&mut self, _world: &ComponentStorage) {
     }
     fn update(&mut self, _world: &ComponentStorage) {
     }

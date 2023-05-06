@@ -22,12 +22,9 @@ pub struct TestScript {
 
 impl Script for TestScript {
     fn script_setup(&mut self) {
-        self.transform.position.x = 5.0;
-
+        self.mesh.local_transform.position.x += 5.0;
     }
 
     fn script_update(&mut self) {
-        self.mesh.local_transform.position.x += 0.01;
-        info!("position {}", self.mesh.local_transform.position.x);
     }
 }

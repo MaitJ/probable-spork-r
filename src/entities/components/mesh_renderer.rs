@@ -7,6 +7,7 @@ pub trait MeshRenderer {
     fn update_camera(&self, queue: &wgpu::Queue, camera_uniform_slice: &[CameraUniform]);
     fn update_instance_data(&mut self, instance_index: usize, transform: TransformInstance) -> Result<(), MeshRendererError>;
     fn write_instance_data(&self, queue: &wgpu::Queue);
+    fn create_instance(&mut self) -> usize;
 }
 
 #[derive(Debug)]
