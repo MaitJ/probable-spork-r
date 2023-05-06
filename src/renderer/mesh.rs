@@ -5,7 +5,7 @@ use cgmath::{Vector3, Quaternion, Rotation3};
 use wgpu::util::DeviceExt;
 use crate::entities::CameraUniform;
 use crate::{vertex::Vertex, shader::{Shader, BIND_GROUP_POSTFIX}, texture::Texture};
-use crate::entities::components::MeshRenderer;
+use crate::entities::components::{MeshRenderer, MeshRendererError};
 
 use super::TransformInstance;
 use super::transform_instance::TransformInstanceRaw;
@@ -45,7 +45,17 @@ impl MeshRenderer for TexturedMesh {
         }
     }
 
-    fn update_instance_data(&self, queue: &wgpu::Queue) {
+    fn update_instance_data(&mut self, instance_index: usize, transform: TransformInstance) -> Result<(), MeshRendererError> {
+        match self.instances.get_mut(instance_index) {
+            Some(instance) => {
+                *instance = transform.clone();
+                Ok(())
+            },
+            None => Err(MeshRendererError::InstanceNotFound)
+        }
+    }
+
+    fn write_instance_data(&self, queue: &wgpu::Queue) {
         let instance_data: Vec<TransformInstanceRaw> = self.instances.iter().map(TransformInstanceRaw::from).collect();
         queue.write_buffer(&self.instance_buffer, 0, bytemuck::cast_slice(&instance_data));
     }

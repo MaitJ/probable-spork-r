@@ -1,6 +1,6 @@
 use winit::event::WindowEvent;
 
-use crate::{entities::{CameraUniform, CameraController, Camera}, RendererResources, scene::Scene, assets::TestScript};
+use crate::{entities::{CameraUniform, CameraController, Camera, components::{MeshInstance, MeshRenderer}}, RendererResources, scene::Scene, assets::TestScript};
 
 pub struct Engine {
     camera_controller: CameraController,
@@ -38,10 +38,12 @@ impl Engine {
 
     pub fn setup(&mut self) {
         let test_script = TestScript::default();
-        self.scene.initiate_script(test_script);
+        let entity = self.scene.create_entity();
+        self.scene.add_script_to_entity(&entity, test_script);
 
         self.scene.setup_components();
         self.scene.update_components();
+
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {

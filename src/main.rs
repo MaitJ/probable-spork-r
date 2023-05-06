@@ -36,7 +36,7 @@ pub struct WgpuStructs {
 }
 
 pub struct RendererResources {
-   camera_uniform: CameraUniform,
+    camera_uniform: CameraUniform,
 }
 
 struct App {
@@ -265,6 +265,7 @@ async fn start() {
                 };
 
                 engine.update(&mut renderer_resources);
+                renderer.update_meshes(engine.scene.get_mesh_instances());
 
                 let editor_output = editor.draw(&app.window, &renderer_resources);
                 renderer.update_ui(editor_output.0, editor_output.1);

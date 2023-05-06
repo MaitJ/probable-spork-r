@@ -1,6 +1,11 @@
-use crate::{renderer::Renderer, WgpuStructs, RendererResources, texture::Texture};
-use crate::entities::components::MeshRenderer;
+use std::cell::Ref;
 
+use log::warn;
+
+use crate::{renderer::Renderer, WgpuStructs, RendererResources, texture::Texture};
+use crate::entities::components::{MeshRenderer, MeshInstance};
+
+use super::TransformInstance;
 use super::renderer::RendererLoop;
 
 pub struct MainRenderer {
@@ -18,6 +23,21 @@ impl MainRenderer {
 }
 
 impl Renderer for MainRenderer {
+    fn update_meshes(&mut self, mesh_instances: Vec<Ref<MeshInstance>>) {
+        for mesh_instance in mesh_instances.iter() {
+            match self.meshes.get_mut(mesh_instance.mesh_index) {
+                Some(mesh) => {
+                    if let Err(e) = mesh.update_instance_data(mesh_instance.mesh_instance_index, TransformInstance::from(&mesh_instance.local_transform)) {
+                        warn!("Error updating instance: {}", e);
+                    }
+                },
+                None => {
+                    warn!("Couldnt find mesh instance (mesh_index: {}, mesh_instance_index: {})", mesh_instance.mesh_index, mesh_instance.mesh_instance_index);
+                }
+            }
+        }
+    }
+
     fn resize(&mut self, _new_size: winit::dpi::PhysicalSize<u32>, _scale_factor: Option<f32>, depth_texture: Option<Texture>) {
         match depth_texture {
             Some(depth_texture) => self.depth_texture = depth_texture,

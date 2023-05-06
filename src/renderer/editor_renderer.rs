@@ -1,13 +1,17 @@
+use std::cell::{RefCell, Ref};
+
 use egui::epaint::Primitive;
 use egui::{ClippedPrimitive, PaintCallbackInfo, TexturesDelta};
 use egui_wgpu::renderer::ScreenDescriptor;
-use log::info;
+use log::{info, warn};
 use wgpu::{Color, RenderPass};
 use winit::window::Window;
 use crate::editor::GamePreviewCallback;
 
-use crate::entities::components::MeshRenderer;
+use crate::entities::components::{MeshRenderer, MeshInstance};
 use crate::{WgpuStructs, renderer::Renderer, texture::Texture, RendererResources};
+
+use super::TransformInstance;
 
 pub struct EditorRenderer {
     depth_texture: Texture,
@@ -142,6 +146,21 @@ impl EditorRenderer {
 }
 
 impl Renderer for EditorRenderer {
+    fn update_meshes(&mut self, mesh_instances: Vec<Ref<MeshInstance>>) {
+        for mesh_instance in mesh_instances.iter() {
+            match self.meshes.get_mut(mesh_instance.mesh_index) {
+                Some(mesh) => {
+                    if let Err(e) = mesh.update_instance_data(mesh_instance.mesh_instance_index, TransformInstance::from(&mesh_instance.local_transform)) {
+                        warn!("Error updating instance: {}", e);
+                    }
+                },
+                None => {
+                    warn!("Couldnt find mesh instance (mesh_index: {}, mesh_instance_index: {})", mesh_instance.mesh_index, mesh_instance.mesh_instance_index);
+                }
+            }
+        }
+    }
+
     fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>, scale_factor: Option<f32>, depth_texture: Option<Texture>) {
         match depth_texture {
             Some(depth_texture) => self.depth_texture = depth_texture,

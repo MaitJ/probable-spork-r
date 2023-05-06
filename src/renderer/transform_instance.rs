@@ -1,6 +1,7 @@
 use cgmath::{Vector3, Quaternion};
 use wgpu::VertexAttribute;
 
+#[derive(Clone)]
 pub struct TransformInstance {
     pub position: Vector3<f32>,
     pub rotation: Quaternion<f32>
