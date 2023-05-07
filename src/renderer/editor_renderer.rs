@@ -154,7 +154,7 @@ impl Renderer for EditorRenderer {
         &mut self.mesh_manager
     }
 
-    fn update_meshes(&mut self, mesh_instances: Vec<Ref<MeshInstance>>) {
+    fn update_meshes(&mut self, mesh_instances: Vec<MeshInstance>) {
         for mesh_instance in mesh_instances.iter() {
             match self.mesh_manager.get_meshes_mut().get_mut(mesh_instance.mesh_index) {
                 Some(mesh) => {

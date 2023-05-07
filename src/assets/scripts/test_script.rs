@@ -1,5 +1,5 @@
 
-use cgmath::Vector3;
+use cgmath::{Vector3, Quaternion, Rotation3, Deg};
 use log::info;
 use probable_spork_ecs::component::Entity;
 use script_gen_macro::ScriptComponentUpdater;
@@ -22,7 +22,9 @@ pub struct TestScript {
 
 impl Script for TestScript {
     fn script_setup(&mut self) {
-        self.mesh.local_transform.position.x += 5.0;
+        self.mesh.local_transform.rotation = Quaternion::from_axis_angle(Vector3::new(1.0, 0.0, 0.0), Deg(45.0));
+        self.transform.position.x += 2.5;
+        self.transform.rotation = Quaternion::from_axis_angle(Vector3::new(1.0, 0.0, 0.0), Deg(45.0));
     }
 
     fn script_update(&mut self) {

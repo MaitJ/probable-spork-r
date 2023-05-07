@@ -1,4 +1,4 @@
-use std::cell::{RefCell, Ref};
+use std::{cell::{RefCell, Ref}, borrow::Borrow};
 
 use log::{info, warn};
 use probable_spork_ecs::{component::{ComponentStorage, Entity, Component, self}};
@@ -44,11 +44,18 @@ impl Scene {
         }
     }
 
-    pub fn get_mesh_instances(&self) -> Vec<Ref<MeshInstance>> {
+    pub fn get_mesh_instances(&self) -> Vec<MeshInstance> {
         let mesh_instances_opt = self.component_storage.get_component_vec::<MeshInstance>();
         match mesh_instances_opt {
             Some(mesh_instances) => {
-                return mesh_instances.iter().map(|m| m.borrow()).collect();
+                return mesh_instances
+                    .iter()
+                    .enumerate()
+                    .map(|(entity_id, instance)| {
+                        let new_instance = instance.borrow().clone();
+                        MeshInstance::apply_transforms_to_mesh_instance(self, entity_id, new_instance)
+                    })
+                    .collect();
             },
             None => warn!("Couldn't find any mesh instances")
         }

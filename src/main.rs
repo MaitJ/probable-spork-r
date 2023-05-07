@@ -260,6 +260,7 @@ async fn start() {
             },
             Event::MainEventsCleared => app.window.request_redraw(),
             Event::RedrawRequested(window_id) if window_id == app.window.id() => {
+
                 let mut renderer_resources = RendererResources {
                     camera_uniform: CameraUniform::new(),
                 };

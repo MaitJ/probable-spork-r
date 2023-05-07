@@ -14,7 +14,7 @@ pub trait Renderer {
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>, scale_factor: Option<f32>, depth_texture: Option<Texture>);
     fn render<'a>(&'a mut self, wgpu_structs: &WgpuStructs, window: &Window, renderer_resources: &'a mut RendererResources) -> Result<(), wgpu::SurfaceError>;
     fn add_mesh(&mut self, mesh: impl MeshRenderer + 'static);
-    fn update_meshes(&mut self, mesh_instances: Vec<Ref<MeshInstance>>);
+    fn update_meshes(&mut self, mesh_instances: Vec<MeshInstance>);
     fn get_mesh_manager(&self) -> &MeshManager;
     fn get_mesh_manager_mut(&mut self) -> &mut MeshManager;
 }
