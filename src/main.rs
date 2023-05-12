@@ -268,7 +268,7 @@ async fn start() {
                 engine.update(&mut renderer_resources);
                 renderer.update_meshes(engine.scene.get_mesh_instances());
 
-                let editor_output = editor.draw(&app.window, &renderer_resources);
+                let editor_output = editor.draw(&app.window, &renderer_resources, &engine.scene);
                 renderer.update_ui(editor_output.0, editor_output.1);
 
                 match renderer.render(&app.wgpu_structs, &app.window, &mut renderer_resources) {

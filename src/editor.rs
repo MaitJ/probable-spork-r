@@ -1,9 +1,11 @@
-use egui::{Separator, PaintCallbackInfo, Ui, ClippedPrimitive, TexturesDelta};
+use std::fmt::format;
+
+use egui::{Separator, PaintCallbackInfo, Ui, ClippedPrimitive, TexturesDelta, Label, Sense, Rect, Style, Widget};
 use egui_winit::EventResponse;
 use log::info;
 use winit::{event_loop::EventLoop, event::WindowEvent};
 
-use crate::{RendererResources, renderer::RendererLoop, entities::components::MeshRenderer};
+use crate::{RendererResources, renderer::RendererLoop, entities::components::MeshRenderer, scene::Scene};
 
 type UpdateCallback = dyn Fn(
         &wgpu::Device,
@@ -71,12 +73,16 @@ impl Editor {
         ui.painter().add(callback);
     }
 
-    pub fn draw(&mut self, window: &winit::window::Window, _renderer_resources: &RendererResources) -> (TexturesDelta, Vec<ClippedPrimitive>) {
+
+    pub fn draw(&mut self, window: &winit::window::Window, _renderer_resources: &RendererResources, scene: &Scene) -> (TexturesDelta, Vec<ClippedPrimitive>) {
         let raw_input = self.winit_state.take_egui_input(window);
         let full_output = self.ctx.run(raw_input, |ctx| {
             egui::SidePanel::left("Scene panel").show(ctx, |ui| {
                 ui.heading("Scene");
                 ui.add(Separator::default().horizontal());
+                egui::Frame::menu(&Style::default())
+                    .fill(egui::Color32::BLACK)
+                    .show(ui, |ui| ui.add(EntityList::new(scene.component_storage.entities)))
             });
             egui::SidePanel::right("Right panel").show(ctx, |ui| {
                 ui.heading("Properties");
@@ -109,4 +115,39 @@ impl Editor {
         (full_output.textures_delta, clipped_primitives)
     }
 
+}
+
+struct EntityList {
+    entities: u32
+}
+
+impl EntityList {
+    fn new(entities: u32) -> Self {
+        Self {
+            entities
+        }
+    }
+
+    fn scene_context_menu(ui: &mut Ui) {
+        let _ = ui.button("Add empty");
+    }
+
+    fn entity_context_menu(ui: &mut Ui) {
+        let _ = ui.button("Rename");
+        let _ = ui.button("Remove");
+    }
+}
+
+impl Widget for EntityList{
+    fn ui(self, ui: &mut Ui) -> egui::Response {
+        ui.vertical(|ui| {
+            for entity in 0..self.entities {
+                let ent_response = ui.add(Label::new(format!("Entity {}", entity)).sense(Sense::click()));
+                ent_response.context_menu(EntityList::entity_context_menu);
+            }
+        });
+
+        let response = ui.allocate_response(egui::vec2(ui.available_width(), ui.available_height()), Sense::click());
+        response.context_menu(EntityList::scene_context_menu)
+    }
 }
