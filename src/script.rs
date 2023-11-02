@@ -1,5 +1,4 @@
-
-use probable_spork_ecs::{component::{Entity, Component, ComponentStorage}};
+use probable_spork_ecs::component::{Component, ComponentStorage, Entity};
 
 pub trait ScriptComponentUpdater {
     fn pre_setup(&mut self, entity: Entity, world: &mut ComponentStorage);
@@ -7,7 +6,7 @@ pub trait ScriptComponentUpdater {
     fn post_user_update(&mut self, world: &ComponentStorage);
 }
 
-pub trait Script: ScriptComponentUpdater{
+pub trait Script: ScriptComponentUpdater {
     fn script_setup(&mut self);
     fn script_update(&mut self);
 }

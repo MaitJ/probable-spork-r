@@ -1,29 +1,39 @@
-use std::fmt::format;
-
-use egui::{Separator, PaintCallbackInfo, Ui, ClippedPrimitive, TexturesDelta, Label, Sense, Rect, Style, Widget};
+use egui::{
+    ClippedPrimitive, Label, PaintCallbackInfo, Rect, Sense, Separator, Style, TexturesDelta, Ui,
+    Widget,
+};
 use egui_winit::EventResponse;
 use log::info;
-use winit::{event_loop::EventLoop, event::WindowEvent};
+use std::fmt::format;
+use winit::{event::WindowEvent, event_loop::EventLoop};
 
-use crate::{RendererResources, renderer::RendererLoop, entities::components::MeshRenderer, scene::Scene};
+use crate::{
+    entities::components::MeshRenderer, renderer::RendererLoop, scene::Scene, RendererResources,
+};
 
 type UpdateCallback = dyn Fn(
         &wgpu::Device,
         &wgpu::Queue,
         &mut wgpu::CommandEncoder,
         &RendererResources,
-        &Vec<Box<dyn MeshRenderer>>
-    ) + Send + Sync;
+        &Vec<Box<dyn MeshRenderer>>,
+    ) + Send
+    + Sync;
 
-type PaintCallback =
-    dyn for<'a, 'b> Fn(PaintCallbackInfo, &'a mut wgpu::RenderPass<'b>, &'b RendererResources, &'b Vec<Box<dyn MeshRenderer>>) + Send + Sync;
+type PaintCallback = dyn for<'a, 'b> Fn(
+        PaintCallbackInfo,
+        &'a mut wgpu::RenderPass<'b>,
+        &'b RendererResources,
+        &'b Vec<Box<dyn MeshRenderer>>,
+    ) + Send
+    + Sync;
 
 pub struct GamePreviewCallback {
     pub update: Box<UpdateCallback>,
-    pub render: Box<PaintCallback>
+    pub render: Box<PaintCallback>,
 }
 
-pub struct Editor{
+pub struct Editor {
     pub ctx: egui::Context,
     pub pixels_per_point: f32,
     winit_state: egui_winit::State,
@@ -31,7 +41,7 @@ pub struct Editor{
 
 impl Editor {
     pub fn new(event_loop: &EventLoop<()>, window: &winit::window::Window) -> Self {
-        let ctx =  egui::Context::default();
+        let ctx = egui::Context::default();
 
         let window_size = window.inner_size();
 
@@ -42,13 +52,13 @@ impl Editor {
 
         ctx.set_pixels_per_point(pixels_per_point);
 
-        let mut winit_state =  egui_winit::State::new(event_loop);
+        let mut winit_state = egui_winit::State::new(event_loop);
         winit_state.set_pixels_per_point(pixels_per_point);
 
         Self {
             ctx,
             pixels_per_point,
-            winit_state
+            winit_state,
         }
     }
 
@@ -61,8 +71,12 @@ impl Editor {
         let (rect, _response) = ui.allocate_at_least(available_size, egui::Sense::drag());
 
         let cb = GamePreviewCallback {
-            update: Box::new(|_device, queue, _encoder, renderer_resources, meshes| RendererLoop::update(queue, renderer_resources, meshes)),
-            render: Box::new(|_info, rpass, renderer_resources, meshes| RendererLoop::render(rpass, renderer_resources, meshes))
+            update: Box::new(|_device, queue, _encoder, renderer_resources, meshes| {
+                RendererLoop::update(queue, renderer_resources, meshes)
+            }),
+            render: Box::new(|_info, rpass, renderer_resources, meshes| {
+                RendererLoop::render(rpass, renderer_resources, meshes)
+            }),
         };
 
         let callback = egui::PaintCallback {
@@ -73,8 +87,12 @@ impl Editor {
         ui.painter().add(callback);
     }
 
-
-    pub fn draw(&mut self, window: &winit::window::Window, _renderer_resources: &RendererResources, scene: &Scene) -> (TexturesDelta, Vec<ClippedPrimitive>) {
+    pub fn draw(
+        &mut self,
+        window: &winit::window::Window,
+        _renderer_resources: &RendererResources,
+        scene: &Scene,
+    ) -> (TexturesDelta, Vec<ClippedPrimitive>) {
         let raw_input = self.winit_state.take_egui_input(window);
         let full_output = self.ctx.run(raw_input, |ctx| {
             egui::SidePanel::left("Scene panel").show(ctx, |ui| {
@@ -82,7 +100,9 @@ impl Editor {
                 ui.add(Separator::default().horizontal());
                 egui::Frame::menu(&Style::default())
                     .fill(egui::Color32::BLACK)
-                    .show(ui, |ui| ui.add(EntityList::new(scene.component_storage.entities)))
+                    .show(ui, |ui| {
+                        ui.add(EntityList::new(scene.component_storage.entities))
+                    })
             });
             egui::SidePanel::right("Right panel").show(ctx, |ui| {
                 ui.heading("Properties");
@@ -101,8 +121,7 @@ impl Editor {
                 }
             });
             egui::CentralPanel::default().show(ctx, |ui| {
-                egui::Frame::canvas(ui.style())
-                .show(ui, |ui| {
+                egui::Frame::canvas(ui.style()).show(ui, |ui| {
                     let available_size = ui.available_size();
                     ui.set_min_height(available_size.y * 0.3);
                     ui.set_min_width(available_size.x * 0.6);
@@ -114,18 +133,15 @@ impl Editor {
         let clipped_primitives = self.ctx.tessellate(full_output.shapes);
         (full_output.textures_delta, clipped_primitives)
     }
-
 }
 
 struct EntityList {
-    entities: u32
+    entities: u32,
 }
 
 impl EntityList {
     fn new(entities: u32) -> Self {
-        Self {
-            entities
-        }
+        Self { entities }
     }
 
     fn scene_context_menu(ui: &mut Ui) {
@@ -138,16 +154,20 @@ impl EntityList {
     }
 }
 
-impl Widget for EntityList{
+impl Widget for EntityList {
     fn ui(self, ui: &mut Ui) -> egui::Response {
         ui.vertical(|ui| {
             for entity in 0..self.entities {
-                let ent_response = ui.add(Label::new(format!("Entity {}", entity)).sense(Sense::click()));
+                let ent_response =
+                    ui.add(Label::new(format!("Entity {}", entity)).sense(Sense::click()));
                 ent_response.context_menu(EntityList::entity_context_menu);
             }
         });
 
-        let response = ui.allocate_response(egui::vec2(ui.available_width(), ui.available_height()), Sense::click());
+        let response = ui.allocate_response(
+            egui::vec2(ui.available_width(), ui.available_height()),
+            Sense::click(),
+        );
         response.context_menu(EntityList::scene_context_menu)
     }
 }

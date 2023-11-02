@@ -1,0 +1,6 @@
+#+title: Notes
+
+* Todos
+- [ ] Ability to add components to entities
+- [ ] Transfering mouse clicks to game world in editor
+- [ ] Also think about how to start a new project

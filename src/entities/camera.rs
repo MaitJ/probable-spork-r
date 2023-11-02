@@ -7,18 +7,18 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 0.0,
     0.0, 0.0, 0.5, 1.0,
 );
- 
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct CameraUniform {
-    view_proj: [[f32; 4]; 4]
+    view_proj: [[f32; 4]; 4],
 }
 
 impl CameraUniform {
     pub fn new() -> Self {
         use cgmath::SquareMatrix;
         Self {
-            view_proj: cgmath::Matrix4::identity().into()
+            view_proj: cgmath::Matrix4::identity().into(),
         }
     }
 
@@ -34,7 +34,7 @@ pub struct Camera {
     pub aspect: f32,
     pub fovy: f32,
     pub znear: f32,
-    pub zfar: f32
+    pub zfar: f32,
 }
 
 impl Camera {
@@ -53,7 +53,7 @@ impl Camera {
             aspect: config.width as f32 / config.height as f32,
             fovy: 45.0,
             znear: 0.1,
-            zfar: 100.0
+            zfar: 100.0,
         }
     }
 }

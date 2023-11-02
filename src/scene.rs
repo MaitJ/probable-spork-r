@@ -1,14 +1,16 @@
-use std::{cell::{RefCell, Ref}, borrow::Borrow};
+use std::{
+    borrow::Borrow,
+    cell::{Ref, RefCell},
+};
 
 use log::{info, warn};
-use probable_spork_ecs::{component::{ComponentStorage, Entity, Component, self}};
+use probable_spork_ecs::component::{self, Component, ComponentStorage, Entity};
 
-use crate::{script::Script, entities::components::MeshInstance};
+use crate::{entities::components::MeshInstance, script::Script};
 
 pub struct Scene {
     pub component_storage: ComponentStorage,
 }
-
 
 impl Scene {
     pub fn new() -> Self {
@@ -29,18 +31,28 @@ impl Scene {
         self.component_storage.create_entity()
     }
 
-    pub fn add_component_to_entity<T: Component + 'static>(&mut self, entity: &Entity, component: T) {
-        self.component_storage.register_component(&entity, component);
+    pub fn add_component_to_entity<T: Component + 'static>(
+        &mut self,
+        entity: &Entity,
+        component: T,
+    ) {
+        self.component_storage
+            .register_component(&entity, component);
     }
 
     pub fn update_entity_component<T>(&mut self, entity: &Entity, component: T)
-        where T: Component + Clone + 'static
+    where
+        T: Component + Clone + 'static,
     {
         match self.component_storage.get_entity_component_mut::<T>(entity) {
             Some(mut c) => {
                 *c = component.clone();
-            },
-            None => warn!("Couldn't find {} for entity: {}", std::any::type_name::<T>(), entity.0)
+            }
+            None => warn!(
+                "Couldn't find {} for entity: {}",
+                std::any::type_name::<T>(),
+                entity.0
+            ),
         }
     }
 
@@ -53,15 +65,18 @@ impl Scene {
                     .enumerate()
                     .map(|(entity_id, instance)| {
                         let new_instance = instance.borrow().clone();
-                        MeshInstance::apply_transforms_to_mesh_instance(self, entity_id, new_instance)
+                        MeshInstance::apply_transforms_to_mesh_instance(
+                            self,
+                            entity_id,
+                            new_instance,
+                        )
                     })
                     .collect();
-            },
-            None => warn!("Couldn't find any mesh instances")
+            }
+            None => warn!("Couldn't find any mesh instances"),
         }
         vec![]
     }
-
 
     pub fn add_script_to_entity<T: Script + 'static>(&mut self, entity: &Entity, script: T) {
         let mut boxed_script: Box<dyn Script> = Box::new(script);

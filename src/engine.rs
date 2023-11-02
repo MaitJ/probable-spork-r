@@ -1,12 +1,21 @@
-use log::{warn, info};
+use log::{info, warn};
 use winit::event::WindowEvent;
 
-use crate::{entities::{CameraUniform, CameraController, Camera, components::{MeshInstance, MeshRenderer, Transform}}, RendererResources, scene::Scene, assets::TestScript, renderer::Renderer};
+use crate::{
+    assets::TestScript,
+    entities::{
+        components::{MeshInstance, MeshRenderer, Transform},
+        Camera, CameraController, CameraUniform,
+    },
+    renderer::Renderer,
+    scene::Scene,
+    RendererResources,
+};
 
 pub struct Engine {
     camera_controller: CameraController,
     camera: Camera,
-    pub scene: Scene
+    pub scene: Scene,
 }
 
 impl Engine {
@@ -21,7 +30,6 @@ impl Engine {
             scene: Scene::new(),
             camera_controller,
             camera,
-
         }
     }
 
@@ -33,7 +41,7 @@ impl Engine {
             aspect: config.width as f32 / config.height as f32,
             fovy: 45.0,
             znear: 0.1,
-            zfar: 100.0
+            zfar: 100.0,
         }
     }
 
@@ -42,27 +50,29 @@ impl Engine {
         let mut entity = self.scene.create_entity();
         self.scene.add_script_to_entity(&entity, test_script);
 
-
         let mesh_index = 0;
-        let mesh_instance_index = renderer.get_mesh_manager_mut().create_mesh_instance(mesh_index);
+        let mesh_instance_index = renderer
+            .get_mesh_manager_mut()
+            .create_mesh_instance(mesh_index);
 
         match mesh_instance_index {
             Some(mesh_instance_index) => {
                 let mesh_instance = MeshInstance {
                     mesh_index,
                     mesh_instance_index,
-                    local_transform: Transform::default()
+                    local_transform: Transform::default(),
                 };
 
                 self.scene.update_entity_component(&entity, mesh_instance);
-            },
-            None => warn!("Couldnt find mesh/mesh_instance")
+            }
+            None => warn!("Couldnt find mesh/mesh_instance"),
         }
-
 
         entity = self.scene.create_entity();
 
-        let mesh_instance_index = renderer.get_mesh_manager_mut().create_mesh_instance(mesh_index);
+        let mesh_instance_index = renderer
+            .get_mesh_manager_mut()
+            .create_mesh_instance(mesh_index);
 
         if let Some(mesh_instance_index) = mesh_instance_index {
             let mut transform = Transform::default();
@@ -71,7 +81,7 @@ impl Engine {
             let mesh_instance = MeshInstance {
                 mesh_index,
                 mesh_instance_index,
-                local_transform: transform
+                local_transform: transform,
             };
             self.scene.add_component_to_entity(&entity, mesh_instance);
         }
